@@ -17,20 +17,28 @@ local Config = {
     AutoLevelMob = true,
     AutoQuest = false,
     AutoBoss = false,
+    AutoSeaEvent = false,
     BringMob = false,
     AutoChest = false,
     FastAttack = false,
     AutoEquipMelee = true,
+    AutoSwapTool = true,
+    SwapInterval = 3.5,
     WalkOnWater = true,
     NoClip = false,
+    FreeFly = false,
     AntiAFK = true,
     ESPPlayer = false,
     ESPChest = false,
     SelectedSea = "Sea 1",
     SelectedTpGroup = "Islands",
     TeleportSearch = "",
+    FlyToTarget = nil,
+    FlyToLabel = nil,
     SelectedBoss = nil,
     SelectedLevelMob = nil,
+    SelectedSeaTarget = nil,
+    SelectedSeaMob = nil,
     WalkSpeed = 16,
     JumpPower = 50,
     FarmHeight = 8,
@@ -38,7 +46,7 @@ local Config = {
 }
 
 local SavedCoords = {}
-local SaveFileName = "lql214"
+local SaveFileName = "RealKidHub_SavedCoords.json"
 
 local function LoadSavedCoordsFromFile()
     if typeof(isfile) == "function" and typeof(readfile) == "function" then
@@ -68,6 +76,79 @@ local function SaveCoordsToFile()
 end
 
 LoadSavedCoordsFromFile()
+
+local ChestCoords = {
+    ["Sea 1"] = {
+        Vector3.new(1055, 16, 1545),
+        Vector3.new(1120, 17, 1590),
+        Vector3.new(-1605, 37, 145),
+        Vector3.new(-1450, 38, 220),
+        Vector3.new(-1185, 4, 3810),
+        Vector3.new(-1140, 15, 4345),
+        Vector3.new(940, 7, 4380),
+        Vector3.new(1350, 104, -1320),
+        Vector3.new(1210, 144, -1440),
+        Vector3.new(-4880, 23, 4270),
+        Vector3.new(-5030, 29, 4325),
+        Vector3.new(-4865, 718, -2620),
+        Vector3.new(-4950, 296, -2900),
+        Vector3.new(4850, 6, 735),
+        Vector3.new(5305, 1, 475),
+        Vector3.new(-1430, 8, -3010),
+        Vector3.new(-5310, 9, 8510),
+        Vector3.new(-5405, 11, 8470),
+        Vector3.new(61160, 12, 1565),
+        Vector3.new(60880, 19, 1540),
+        Vector3.new(-7905, 5636, -1410),
+        Vector3.new(-7675, 5566, -495),
+        Vector3.new(5130, 1001, 3860),
+        Vector3.new(5550, 79, 4565)
+    },
+    ["Sea 2"] = {
+        Vector3.new(-415, 73, 300),
+        Vector3.new(-745, 39, 2390),
+        Vector3.new(-870, 141, 1295),
+        Vector3.new(-2445, 73, -3210),
+        Vector3.new(-1870, 73, -3320),
+        Vector3.new(-5410, 49, -720),
+        Vector3.new(-5720, 123, -980),
+        Vector3.new(1385, 427, -4505),
+        Vector3.new(1495, 401, -5330),
+        Vector3.new(-5455, 16, -5235),
+        Vector3.new(-5780, 42, -4485),
+        Vector3.new(925, 125, 32850),
+        Vector3.new(1210, 126, 33000),
+        Vector3.new(920, 43, 32785),
+        Vector3.new(5410, 28, -6235),
+        Vector3.new(5965, 29, -6185),
+        Vector3.new(-3030, 240, -10195),
+        Vector3.new(-3385, 239, -10540)
+    },
+    ["Sea 3"] = {
+        Vector3.new(-290, 44, 5580),
+        Vector3.new(-370, 44, 5555),
+        Vector3.new(-470, 74, 5905),
+        Vector3.new(5745, 611, -275),
+        Vector3.new(6305, 52, -1135),
+        Vector3.new(5820, 1019, -110),
+        Vector3.new(2680, 1682, -7190),
+        Vector3.new(2285, 73, -7160),
+        Vector3.new(-13275, 532, -7575),
+        Vector3.new(-10550, 332, -8465),
+        Vector3.new(-13205, 332, -7630),
+        Vector3.new(-5085, 315, -3155),
+        Vector3.new(-5415, 314, -2210),
+        Vector3.new(-9515, 142, 6075),
+        Vector3.new(-8760, 142, 6065),
+        Vector3.new(-2060, 38, -10290),
+        Vector3.new(-900, 79, -10990),
+        Vector3.new(-1885, 71, -12365),
+        Vector3.new(145, 25, -12775),
+        Vector3.new(-1450, 16, -14385),
+        Vector3.new(-16220, 9, 440),
+        Vector3.new(-16435, 116, -225)
+    }
+}
 
 local LevelData = {
     {MinLv = 1, MaxLv = 9, Sea = "Sea 1", Mob = "Bandit", Pos = Vector3.new(1145, 17, 1635)},
@@ -305,6 +386,19 @@ local WorldData = {
     }
 }
 
+local SeaEventKeywords = {
+    "terrorshark",
+    "piranha",
+    "shark",
+    "seabeast",
+    "ghostship",
+    "piratebrigade",
+    "pirategrandbrigade",
+    "fishboat",
+    "ship",
+    "event"
+}
+
 local Accent = Color3.fromRGB(16, 185, 129)
 local BgDark = Color3.fromRGB(14, 15, 19)
 local PanelBg = Color3.fromRGB(20, 22, 28)
@@ -466,6 +560,16 @@ local function SetStatus(msg)
     end
 end
 
+local ToggleControllers = {}
+
+local function SetToggleState(key, state)
+    Config[key] = state
+    local ctrl = ToggleControllers[key]
+    if ctrl and ctrl.sync then
+        ctrl.sync(state)
+    end
+end
+
 local function GetPlayerLevel()
     local dataFolder = LocalPlayer:FindFirstChild("Data")
     local levelVal = dataFolder and dataFolder:FindFirstChild("Level")
@@ -480,23 +584,62 @@ local function GetPlayerLevel()
     return 1
 end
 
-local function GetLevelEntryByPlayerLevel()
-    local lv = GetPlayerLevel()
-    local best = LevelData[1]
-    for _, entry in ipairs(LevelData) do
-        if lv >= entry.MinLv and lv <= entry.MaxLv then
-            return entry
+local function GetRoot()
+    local char = LocalPlayer.Character
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function GetDetectedSeaName()
+    local root = GetRoot()
+    if root then
+        local pos = root.Position
+        if pos.Z > 15000 then
+            return "Sea 2"
         end
-        if lv >= entry.MinLv then
-            best = entry
+        if pos.Z < -6500 or pos.Y > 1500 then
+            return "Sea 3"
+        end
+        return "Sea 1"
+    end
+    if Config.SelectedSea == "Sea 1" or Config.SelectedSea == "Sea 2" or Config.SelectedSea == "Sea 3" then
+        return Config.SelectedSea
+    end
+    return "Sea 1"
+end
+
+local function GetCurrentSeaName()
+    if Config.SelectedSea == "Sea 1" or Config.SelectedSea == "Sea 2" or Config.SelectedSea == "Sea 3" then
+        return Config.SelectedSea
+    end
+    return GetDetectedSeaName()
+end
+
+local function IsEntryInCurrentSea(entrySea)
+    local activeSea = GetCurrentSeaName()
+    local detectedSea = GetDetectedSeaName()
+    return entrySea == activeSea and entrySea == detectedSea
+end
+
+local function GetLevelEntryByPlayerLevel()
+    local activeSea = GetCurrentSeaName()
+    local lv = GetPlayerLevel()
+    local best = nil
+    for _, entry in ipairs(LevelData) do
+        if entry.Sea == activeSea then
+            best = best or entry
+            if lv >= entry.MinLv and lv <= entry.MaxLv then
+                return entry
+            end
+            if lv >= entry.MinLv then
+                best = entry
+            end
         end
     end
     return best
 end
 
-local function GetRoot()
-    local char = LocalPlayer.Character
-    return char and char:FindFirstChild("HumanoidRootPart")
+local function HasActiveMovementMode()
+    return Config.AutoFarm or Config.AutoBoss or Config.AutoSeaEvent or Config.AutoChest or Config.FreeFly or Config.FlyToTarget ~= nil
 end
 
 local hoverVel = Instance.new("BodyVelocity")
@@ -518,6 +661,25 @@ local function SetHoverState(enabled)
     end
 end
 
+local function EnforceSeaMatchOrStop()
+    if not (Config.AutoFarm or Config.AutoChest) then
+        return true
+    end
+    local detectedSea = GetDetectedSeaName()
+    if detectedSea ~= Config.SelectedSea then
+        Config.AutoFarm = false
+        Config.AutoChest = false
+        SetToggleState("AutoFarm", false)
+        SetToggleState("AutoChest", false)
+        if not HasActiveMovementMode() then
+            SetHoverState(false)
+        end
+        SetStatus("Stopped: In " .. detectedSea .. " != " .. tostring(Config.SelectedSea))
+        return false
+    end
+    return true
+end
+
 local function FlyStepTo(targetCFrame)
     local root = GetRoot()
     if not root then return end
@@ -534,11 +696,25 @@ local function FlyStepTo(targetCFrame)
     end
 end
 
-local function TeleportToPos(pos)
-    local root = GetRoot()
-    if root and typeof(pos) == "Vector3" then
-        root.CFrame = CFrame.new(pos + Vector3.new(0, 4, 0))
+local function StartFlyToDestination(pos, labelText, requiredSea)
+    if requiredSea and not IsEntryInCurrentSea(requiredSea) then
+        SetStatus("Wrong Sea: Requires " .. tostring(requiredSea))
+        return
     end
+    if typeof(pos) == "Vector3" then
+        Config.FlyToTarget = pos + Vector3.new(0, 4, 0)
+        Config.FlyToLabel = labelText or "Destination"
+        SetStatus("Flying: " .. Config.FlyToLabel)
+    end
+end
+
+local function StopFlyToDestination()
+    Config.FlyToTarget = nil
+    Config.FlyToLabel = nil
+    if not HasActiveMovementMode() then
+        SetHoverState(false)
+    end
+    SetStatus("Lv: " .. tostring(GetPlayerLevel()) .. " | Fly Stopped")
 end
 
 local function GetLiveTargetPos(targetName, fallbackPos)
@@ -569,707 +745,49 @@ local function GetLiveTargetPos(targetName, fallbackPos)
     return fallbackPos
 end
 
-local Pages = {}
-local TabButtons = {}
-
-local function CreateTab(name)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 112, 0, 28)
-    btn.BackgroundColor3 = RowBg
-    btn.Text = name
-    btn.TextColor3 = TextDim
-    btn.Font = Enum.Font.GothamSemibold
-    btn.TextSize = 11
-    btn.Parent = Sidebar
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-
-    local page = Instance.new("ScrollingFrame")
-    page.Name = name .. "Page"
-    page.Size = UDim2.new(1, -12, 1, -12)
-    page.Position = UDim2.new(0, 6, 0, 6)
-    page.BackgroundTransparency = 1
-    page.BorderSizePixel = 0
-    page.ScrollBarThickness = 2
-    page.ScrollBarImageColor3 = Accent
-    page.CanvasSize = UDim2.new(0, 0, 0, 0)
-    page.Visible = false
-    page.Parent = ContentHolder
-
-    local layout = Instance.new("UIListLayout", page)
-    layout.Padding = UDim.new(0, 6)
-    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
-    end)
-
-    Pages[name] = page
-    TabButtons[name] = btn
-
-    btn.MouseButton1Click:Connect(function()
-        for k, p in pairs(Pages) do
-            p.Visible = (k == name)
-        end
-        for k, b in pairs(TabButtons) do
-            if k == name then
-                b.BackgroundColor3 = Accent
-                b.TextColor3 = BgDark
-            else
-                b.BackgroundColor3 = RowBg
-                b.TextColor3 = TextDim
-            end
-        end
-    end)
-
-    return page
-end
-
-local function CreateToggle(parent, text, defaultState, callback)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -6, 0, 32)
-    frame.BackgroundColor3 = RowBg
-    frame.BorderSizePixel = 0
-    frame.Parent = parent
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
-
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -60, 1, 0)
-    lbl.Position = UDim2.new(0, 10, 0, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = text
-    lbl.TextColor3 = TextMain
-    lbl.Font = Enum.Font.GothamMedium
-    lbl.TextSize = 11
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = frame
-
-    local sw = Instance.new("TextButton")
-    sw.Size = UDim2.new(0, 42, 0, 20)
-    sw.Position = UDim2.new(1, -50, 0.5, -10)
-    sw.BackgroundColor3 = defaultState and Accent or Color3.fromRGB(51, 65, 85)
-    sw.Text = defaultState and "ON" or "OFF"
-    sw.TextColor3 = defaultState and BgDark or TextDim
-    sw.Font = Enum.Font.GothamBold
-    sw.TextSize = 10
-    sw.Parent = frame
-    Instance.new("UICorner", sw).CornerRadius = UDim.new(1, 0)
-
-    local active = defaultState
-    sw.MouseButton1Click:Connect(function()
-        active = not active
-        sw.BackgroundColor3 = active and Accent or Color3.fromRGB(51, 65, 85)
-        sw.Text = active and "ON" or "OFF"
-        sw.TextColor3 = active and BgDark or TextDim
-        callback(active)
-    end)
-end
-
-local function CreateButton(parent, text, callback)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -6, 0, 30)
-    btn.BackgroundColor3 = RowBg
-    btn.Text = text
-    btn.TextColor3 = TextMain
-    btn.Font = Enum.Font.GothamSemibold
-    btn.TextSize = 11
-    btn.Parent = parent
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-    btn.MouseButton1Click:Connect(callback)
-    return btn
-end
-
-local function CreateChipRow(parent, options, selectedValue, onSelect)
-    local row = Instance.new("Frame")
-    row.Size = UDim2.new(1, -6, 0, 28)
-    row.BackgroundTransparency = 1
-    row.Parent = parent
-
-    local layout = Instance.new("UIListLayout", row)
-    layout.FillDirection = Enum.FillDirection.Horizontal
-    layout.Padding = UDim.new(0, 6)
-
-    local count = #options
-    local widthScale = 1 / count
-
-    for _, opt in ipairs(options) do
-        local chip = Instance.new("TextButton")
-        chip.Size = UDim2.new(widthScale, -4, 1, 0)
-        chip.BackgroundColor3 = (opt == selectedValue) and Accent or RowBg
-        chip.Text = opt
-        chip.TextColor3 = (opt == selectedValue) and BgDark or TextMain
-        chip.Font = Enum.Font.GothamBold
-        chip.TextSize = 11
-        chip.Parent = row
-        Instance.new("UICorner", chip).CornerRadius = UDim.new(0, 6)
-
-        chip.MouseButton1Click:Connect(function()
-            onSelect(opt)
-        end)
-    end
-end
-
-local function CreateSection(parent, text)
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -6, 0, 18)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = text
-    lbl.TextColor3 = Accent
-    lbl.Font = Enum.Font.GothamBold
-    lbl.TextSize = 11
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = parent
-end
-
-local MainTab = CreateTab("Main")
-local LevelTab = CreateTab("Level Mobs")
-local TeleportTab = CreateTab("Teleport")
-local BossTab = CreateTab("Boss & Raid")
-local SavedTab = CreateTab("Saved")
-local CombatTab = CreateTab("Combat")
-local MiscTab = CreateTab("Player & ESP")
-
-Pages["Main"].Visible = true
-TabButtons["Main"].BackgroundColor3 = Accent
-TabButtons["Main"].TextColor3 = BgDark
-
-StatusLabel = Instance.new("TextLabel")
-StatusLabel.Size = UDim2.new(1, -6, 0, 26)
-StatusLabel.BackgroundColor3 = RowBg
-StatusLabel.Text = "Lv: 1 | H: 8 | Spd: 140"
-StatusLabel.TextColor3 = Accent
-StatusLabel.Font = Enum.Font.GothamBold
-StatusLabel.TextSize = 11
-StatusLabel.Parent = MainTab
-Instance.new("UICorner", StatusLabel).CornerRadius = UDim.new(0, 6)
-
-CreateToggle(MainTab, "Auto Farm Level", false, function(v)
-    Config.AutoFarm = v
-    if not v then SetHoverState(false) end
-end)
-
-CreateToggle(MainTab, "Auto Mob By Player Level", true, function(v)
-    Config.AutoLevelMob = v
-end)
-
-CreateToggle(MainTab, "Auto Quest", false, function(v)
-    Config.AutoQuest = v
-end)
-
-CreateToggle(MainTab, "Auto Collect Chest", false, function(v)
-    Config.AutoChest = v
-end)
-
-for _, entry in ipairs(LevelData) do
-    CreateButton(LevelTab, string.format("Lv %d-%d | %s (%s)", entry.MinLv, entry.MaxLv, entry.Mob, entry.Sea), function()
-        Config.SelectedLevelMob = entry
-        TeleportToPos(GetLiveTargetPos(entry.Mob, entry.Pos))
-        SetStatus("Target: " .. entry.Mob)
-    end)
-end
-
-local function RebuildSavedList()
-    for _, child in ipairs(SavedTab:GetChildren()) do
-        if not child:IsA("UIListLayout") then
-            child:Destroy()
+local function IsSeaEventName(name)
+    local lower = string.lower(tostring(name))
+    for _, kw in ipairs(SeaEventKeywords) do
+        if string.find(lower, kw, 1, true) then
+            return true
         end
     end
-
-    CreateButton(SavedTab, "Save Current Position", function()
-        local root = GetRoot()
-        if root then
-            local p = root.Position
-            local idx = #SavedCoords + 1
-            table.insert(SavedCoords, {name = "Spot " .. idx, x = p.X, y = p.Y, z = p.Z})
-            SaveCoordsToFile()
-            RebuildSavedList()
-        end
-    end)
-
-    CreateButton(SavedTab, "Clear All Saved", function()
-        table.clear(SavedCoords)
-        SaveCoordsToFile()
-        RebuildSavedList()
-    end)
-
-    for i, item in ipairs(SavedCoords) do
-        local pos = Vector3.new(item.x, item.y, item.z)
-        CreateButton(SavedTab, string.format("TP %s (%.0f, %.0f, %.0f)", item.name or ("Spot " .. i), item.x, item.y, item.z), function()
-            TeleportToPos(pos)
-        end)
-    end
+    return false
 end
 
-local RebuildBossTab
-local tpHeaderHolder = Instance.new("Frame")
-tpHeaderHolder.Name = "TpHeaderHolder"
-tpHeaderHolder.Size = UDim2.new(1, -6, 0, 102)
-tpHeaderHolder.BackgroundTransparency = 1
-tpHeaderHolder.Parent = TeleportTab
+local function ScanSeaEvents()
+    local root = GetRoot()
+    local found = {}
+    local seen = {}
 
-local tpHeaderLayout = Instance.new("UIListLayout", tpHeaderHolder)
-tpHeaderLayout.Padding = UDim.new(0, 6)
-
-local searchRow = Instance.new("Frame")
-searchRow.Size = UDim2.new(1, -6, 0, 30)
-searchRow.BackgroundColor3 = RowBg
-searchRow.BorderSizePixel = 0
-searchRow.Parent = tpHeaderHolder
-Instance.new("UICorner", searchRow).CornerRadius = UDim.new(0, 6)
-
-local searchBox = Instance.new("TextBox")
-searchBox.Size = UDim2.new(1, -38, 1, 0)
-searchBox.Position = UDim2.new(0, 10, 0, 0)
-searchBox.BackgroundTransparency = 1
-searchBox.PlaceholderText = "Search All Seas (Island / NPC / Shop)..."
-searchBox.PlaceholderColor3 = TextDim
-searchBox.Text = Config.TeleportSearch
-searchBox.TextColor3 = TextMain
-searchBox.Font = Enum.Font.GothamMedium
-searchBox.TextSize = 11
-searchBox.ClearTextOnFocus = false
-searchBox.TextXAlignment = Enum.TextXAlignment.Left
-searchBox.Parent = searchRow
-
-local clearSearchBtn = Instance.new("TextButton")
-clearSearchBtn.Size = UDim2.new(0, 24, 0, 22)
-clearSearchBtn.Position = UDim2.new(1, -28, 0.5, -11)
-clearSearchBtn.BackgroundColor3 = PanelBg
-clearSearchBtn.Text = "X"
-clearSearchBtn.TextColor3 = TextDim
-clearSearchBtn.Font = Enum.Font.GothamBold
-clearSearchBtn.TextSize = 10
-clearSearchBtn.Parent = searchRow
-Instance.new("UICorner", clearSearchBtn).CornerRadius = UDim.new(0, 5)
-
-local tpChipsHolder = Instance.new("Frame")
-tpChipsHolder.Size = UDim2.new(1, 0, 0, 62)
-tpChipsHolder.BackgroundTransparency = 1
-tpChipsHolder.Parent = tpHeaderHolder
-
-local tpChipsLayout = Instance.new("UIListLayout", tpChipsHolder)
-tpChipsLayout.Padding = UDim.new(0, 6)
-
-local tpResultsHolder = Instance.new("Frame")
-tpResultsHolder.Name = "TpResultsHolder"
-tpResultsHolder.Size = UDim2.new(1, 0, 0, 0)
-tpResultsHolder.AutomaticSize = Enum.AutomaticSize.Y
-tpResultsHolder.BackgroundTransparency = 1
-tpResultsHolder.Parent = TeleportTab
-
-local tpResultsLayout = Instance.new("UIListLayout", tpResultsHolder)
-tpResultsLayout.Padding = UDim.new(0, 6)
-
-local function RefreshTeleportResults()
-    for _, child in ipairs(tpResultsHolder:GetChildren()) do
-        if not child:IsA("UIListLayout") then
-            child:Destroy()
-        end
-    end
-
-    local keyword = string.lower(Config.TeleportSearch or "")
-    if keyword ~= "" then
-        local matches = {}
-        for _, seaName in ipairs({"Sea 1", "Sea 2", "Sea 3"}) do
-            local seaInfo = WorldData[seaName]
-            if seaInfo then
-                for _, grpName in ipairs({"Islands", "NPCs", "Shops"}) do
-                    local grpList = seaInfo[grpName]
-                    if grpList then
-                        for _, item in ipairs(grpList) do
-                            local name = item[1]
-                            local pos = item[2]
-                            if string.find(string.lower(name), keyword, 1, true)
-                                or string.find(string.lower(seaName), keyword, 1, true)
-                                or string.find(string.lower(grpName), keyword, 1, true) then
-                                table.insert(matches, {
-                                    sea = seaName,
-                                    group = grpName,
-                                    name = name,
-                                    pos = pos
-                                })
-                            end
+    local function checkContainer(container)
+        if not container then return end
+        for _, obj in ipairs(container:GetChildren()) do
+            if IsSeaEventName(obj.Name) then
+                local part = obj:FindFirstChild("HumanoidRootPart")
+                    or obj:FindFirstChildWhichIsA("BasePart")
+                    or (obj.PrimaryPart)
+                if not part then
+                    for _, d in ipairs(obj:GetDescendants()) do
+                        if d:IsA("BasePart") then
+                            part = d
+                            break
                         end
                     end
                 end
-            end
-        end
-
-        CreateSection(tpResultsHolder, string.format("All Seas Search (%d)", #matches))
-        for _, entry in ipairs(matches) do
-            CreateButton(tpResultsHolder, string.format("[%s] %s (%s)", entry.sea, entry.name, entry.group), function()
-                Config.SelectedSea = entry.sea
-                local dest = (entry.group == "Islands") and entry.pos or GetLiveTargetPos(entry.name, entry.pos)
-                TeleportToPos(dest)
-                SetStatus(string.format("TP [%s]: %s", entry.sea, entry.name))
-            end)
-        end
-        return
-    end
-
-    local seaInfo = WorldData[Config.SelectedSea]
-    local list = seaInfo and seaInfo[Config.SelectedTpGroup]
-    if not list then return end
-
-    CreateSection(tpResultsHolder, string.format("%s - %s (%d)", Config.SelectedSea, Config.SelectedTpGroup, #list))
-
-    for _, item in ipairs(list) do
-        local name = item[1]
-        local pos = item[2]
-        CreateButton(tpResultsHolder, name, function()
-            local dest = (Config.SelectedTpGroup == "Islands") and pos or GetLiveTargetPos(name, pos)
-            TeleportToPos(dest)
-            SetStatus("TP: " .. name)
-        end)
-    end
-end
-
-local function RebuildTeleportTab()
-    for _, child in ipairs(tpChipsHolder:GetChildren()) do
-        if not child:IsA("UIListLayout") then
-            child:Destroy()
-        end
-    end
-
-    CreateChipRow(tpChipsHolder, {"Sea 1", "Sea 2", "Sea 3"}, Config.SelectedSea, function(sea)
-        Config.SelectedSea = sea
-        RebuildTeleportTab()
-        if RebuildBossTab then RebuildBossTab() end
-    end)
-
-    CreateChipRow(tpChipsHolder, {"Islands", "NPCs", "Shops"}, Config.SelectedTpGroup, function(grp)
-        Config.SelectedTpGroup = grp
-        RebuildTeleportTab()
-    end)
-
-    RefreshTeleportResults()
-end
-
-searchBox:GetPropertyChangedSignal("Text"):Connect(function()
-    Config.TeleportSearch = searchBox.Text
-    RefreshTeleportResults()
-end)
-
-clearSearchBtn.MouseButton1Click:Connect(function()
-    searchBox.Text = ""
-    Config.TeleportSearch = ""
-    RefreshTeleportResults()
-end)
-
-RebuildBossTab = function()
-    for _, child in ipairs(BossTab:GetChildren()) do
-        if not child:IsA("UIListLayout") then
-            child:Destroy()
-        end
-    end
-
-    CreateChipRow(BossTab, {"Sea 1", "Sea 2", "Sea 3"}, Config.SelectedSea, function(sea)
-        Config.SelectedSea = sea
-        RebuildBossTab()
-        RebuildTeleportTab()
-    end)
-
-    local seaInfo = WorldData[Config.SelectedSea]
-    if not seaInfo then return end
-
-    CreateToggle(BossTab, "Auto Farm Selected Boss", false, function(v)
-        Config.AutoBoss = v
-        if not v then SetHoverState(false) end
-    end)
-
-    CreateSection(BossTab, Config.SelectedSea .. " Bosses")
-    for _, item in ipairs(seaInfo.Bosses) do
-        local name, pos = item[1], item[2]
-        CreateButton(BossTab, "Boss: " .. name, function()
-            Config.SelectedBoss = name
-            TeleportToPos(GetLiveTargetPos(name, pos))
-            SetStatus("Boss: " .. name)
-        end)
-    end
-
-    CreateSection(BossTab, Config.SelectedSea .. " Raids & Spots")
-    for _, item in ipairs(seaInfo.RaidsAndEvents) do
-        local name, pos = item[1], item[2]
-        CreateButton(BossTab, name, function()
-            TeleportToPos(pos)
-            SetStatus("TP: " .. name)
-        end)
-    end
-end
-
-RebuildTeleportTab()
-RebuildBossTab()
-RebuildSavedList()
-
-CreateToggle(CombatTab, "Fast Attack", false, function(v) Config.FastAttack = v end)
-CreateToggle(CombatTab, "Bring Mob", false, function(v) Config.BringMob = v end)
-CreateToggle(CombatTab, "Auto Equip Tool", true, function(v) Config.AutoEquipMelee = v end)
-
-CreateSection(CombatTab, "Hover Height Above Mob")
-for _, h in ipairs({6, 8, 10, 14}) do
-    CreateButton(CombatTab, string.format("Height: %d Studs", h), function()
-        Config.FarmHeight = h
-        SetStatus(string.format("Height: %d | Speed: %d", Config.FarmHeight, Config.FlySpeed))
-    end)
-end
-
-CreateSection(CombatTab, "Fly Speed")
-for _, spd in ipairs({100, 140, 200, 260}) do
-    CreateButton(CombatTab, string.format("Fly Speed: %d", spd), function()
-        Config.FlySpeed = spd
-        SetStatus(string.format("Height: %d | Speed: %d", Config.FarmHeight, Config.FlySpeed))
-    end)
-end
-
-CreateToggle(MiscTab, "Walk On Water", true, function(v) Config.WalkOnWater = v end)
-CreateToggle(MiscTab, "NoClip", false, function(v) Config.NoClip = v end)
-CreateToggle(MiscTab, "Anti-AFK", true, function(v) Config.AntiAFK = v end)
-CreateToggle(MiscTab, "ESP Players", false, function(v) Config.ESPPlayer = v end)
-CreateToggle(MiscTab, "ESP Chests", false, function(v) Config.ESPChest = v end)
-CreateButton(MiscTab, "Speed 65", function()
-    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if hum then hum.WalkSpeed = 65 end
-end)
-CreateButton(MiscTab, "Speed 16", function()
-    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if hum then hum.WalkSpeed = 16 end
-end)
-
-local waterPart = Instance.new("Part")
-waterPart.Name = "RK_WaterFloor"
-waterPart.Anchored = true
-waterPart.CanCollide = true
-waterPart.Transparency = 1
-waterPart.Size = Vector3.new(30, 1, 30)
-waterPart.Parent = workspace
-
-local function EquipWeapon()
-    if not Config.AutoEquipMelee then return end
-    local char = LocalPlayer.Character
-    local backpack = LocalPlayer:FindFirstChild("Backpack")
-    if not char or not backpack or char:FindFirstChildOfClass("Tool") then return end
-    for _, tool in ipairs(backpack:GetChildren()) do
-        if tool:IsA("Tool") then
-            tool.Parent = char
-            break
-        end
-    end
-end
-
-local function FindMobByNameOrNearest(preferName)
-    local root = GetRoot()
-    local enemies = workspace:FindFirstChild("Enemies")
-    if not root or not enemies then return nil end
-
-    local bestByName, bestDistByName = nil, math.huge
-    local nearest, minDist = nil, math.huge
-    local lowerPref = preferName and string.lower(preferName) or nil
-
-    for _, mob in ipairs(enemies:GetChildren()) do
-        local hum = mob:FindFirstChildOfClass("Humanoid")
-        local mRoot = mob:FindFirstChild("HumanoidRootPart")
-        if hum and mRoot and hum.Health > 0 then
-            local d = (mRoot.Position - root.Position).Magnitude
-            if d < minDist then
-                minDist = d
-                nearest = mob
-            end
-            if lowerPref and string.find(string.lower(mob.Name), lowerPref, 1, true) and d < bestDistByName then
-                bestDistByName = d
-                bestByName = mob
-            end
-        end
-    end
-
-    return bestByName or nearest
-end
-
-local function BringNearbyMobs(centerPos, radius)
-    local enemies = workspace:FindFirstChild("Enemies")
-    if not enemies then return end
-    local pullCF = CFrame.new(centerPos + Vector3.new(0, 0, -4))
-    for _, mob in ipairs(enemies:GetChildren()) do
-        local hum = mob:FindFirstChildOfClass("Humanoid")
-        local mRoot = mob:FindFirstChild("HumanoidRootPart")
-        if hum and mRoot and hum.Health > 0 then
-            local d = (mRoot.Position - centerPos).Magnitude
-            if d > 5 and d <= radius then
-                mRoot.CFrame = pullCF
-                mRoot.CanCollide = false
-            end
-        end
-    end
-end
-
-local lastQuest = 0
-local function TryAutoQuest()
-    if tick() - lastQuest < 2.5 then return end
-    lastQuest = tick()
-    local npcs = workspace:FindFirstChild("NPCs")
-    local root = GetRoot()
-    if not npcs or not root then return end
-    for _, npc in ipairs(npcs:GetChildren()) do
-        if string.find(string.lower(npc.Name), "quest", 1, true) then
-            local hrp = npc:FindFirstChild("HumanoidRootPart") or npc:FindFirstChildWhichIsA("BasePart")
-            if hrp and (hrp.Position - root.Position).Magnitude <= 120 then
-                for _, rem in ipairs(ReplicatedStorage:GetDescendants()) do
-                    if rem:IsA("RemoteEvent") and string.find(string.lower(rem.Name), "quest", 1, true) then
-                        pcall(function() rem:FireServer("StartQuest", npc.Name, 1) end)
-                        break
+                local hum = obj:FindFirstChildOfClass("Humanoid")
+                local alive = (not hum) or (hum.Health > 0)
+                if part and alive then
+                    local key = obj.Name .. "_" .. tostring(math.floor(part.Position.X)) .. "_" .. tostring(math.floor(part.Position.Z))
+                    if not seen[key] then
+                        seen[key] = true
+                        local dist = root and (part.Position - root.Position).Magnitude or 0
+                        table.insert(found, {
+                            name = obj.Name,
+                            pos = part.Position,
+                            dist = dist
+                        })
                     end
                 end
-                break
             end
         end
-    end
-end
-
-local cachedChests = {}
-local lastChestScan = 0
-local function RefreshChests()
-    if tick() - lastChestScan < 4 and #cachedChests > 0 then return end
-    lastChestScan = tick()
-    table.clear(cachedChests)
-    for _, v in ipairs(workspace:GetDescendants()) do
-        if v:IsA("BasePart") and string.find(string.lower(v.Name), "chest", 1, true) and v:FindFirstChildWhichIsA("TouchTransmitter") then
-            table.insert(cachedChests, v)
-        end
-    end
-end
-
-local function AttackOnce()
-    VirtualUser:CaptureController()
-    VirtualUser:Button1Down(Vector2.new(1280, 672))
-end
-
-LocalPlayer.Idled:Connect(function()
-    if Config.AntiAFK then
-        VirtualUser:CaptureController()
-        VirtualUser:ClickButton2(Vector2.new())
-    end
-end)
-
-RunService.Stepped:Connect(function()
-    local root = GetRoot()
-    if root and Config.WalkOnWater then
-        waterPart.CanCollide = true
-        waterPart.Position = Vector3.new(root.Position.X, -0.5, root.Position.Z)
-    else
-        waterPart.CanCollide = false
-    end
-
-    if Config.NoClip and LocalPlayer.Character then
-        for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
-            if part:IsA("BasePart") and part.CanCollide then
-                part.CanCollide = false
-            end
-        end
-    end
-end)
-
-task.spawn(function()
-    while task.wait(0.06) do
-        if Config.AutoFarm or Config.AutoBoss then
-            pcall(function()
-                local root = GetRoot()
-                if not root then return end
-
-                if Config.AutoBoss and Config.SelectedBoss then
-                    local bossMob = FindMobByNameOrNearest(Config.SelectedBoss)
-                    EquipWeapon()
-                    if bossMob and bossMob:FindFirstChild("HumanoidRootPart") then
-                        local bRoot = bossMob.HumanoidRootPart
-                        local aboveCF = CFrame.new(bRoot.Position + Vector3.new(0, Config.FarmHeight, 0), bRoot.Position) * CFrame.Angles(math.rad(-90), 0, 0)
-                        FlyStepTo(aboveCF)
-                        AttackOnce()
-                        SetStatus("Boss: " .. Config.SelectedBoss)
-                        return
-                    end
-                end
-
-                if Config.AutoFarm then
-                    local lvEntry = Config.SelectedLevelMob or (Config.AutoLevelMob and GetLevelEntryByPlayerLevel()) or nil
-                    local desiredName = lvEntry and lvEntry.Mob or nil
-                    local target = FindMobByNameOrNearest(desiredName)
-
-                    if target and target:FindFirstChild("HumanoidRootPart") then
-                        if Config.AutoQuest then TryAutoQuest() end
-                        EquipWeapon()
-                        local tRoot = target.HumanoidRootPart
-                        local aboveCF = CFrame.new(tRoot.Position + Vector3.new(0, Config.FarmHeight, 0), tRoot.Position) * CFrame.Angles(math.rad(-90), 0, 0)
-                        FlyStepTo(aboveCF)
-                        if Config.BringMob then
-                            BringNearbyMobs(tRoot.Position, 45)
-                        end
-                        AttackOnce()
-                        SetStatus(string.format("Lv %d | %s (H:%d)", GetPlayerLevel(), target.Name, Config.FarmHeight))
-                    elseif lvEntry then
-                        FlyStepTo(CFrame.new(lvEntry.Pos + Vector3.new(0, Config.FarmHeight + 2, 0)))
-                        SetStatus(string.format("Lv %d | Move: %s", GetPlayerLevel(), lvEntry.Mob))
-                    else
-                        SetHoverState(false)
-                        SetStatus("Lv " .. tostring(GetPlayerLevel()) .. " | Searching")
-                    end
-                end
-            end)
-        else
-            SetHoverState(false)
-        end
-    end
-end)
-
-task.spawn(function()
-    while task.wait(0.35) do
-        if Config.AutoChest then
-            pcall(function()
-                local root = GetRoot()
-                if not root then return end
-                RefreshChests()
-                for i = #cachedChests, 1, -1 do
-                    if not Config.AutoChest then break end
-                    local c = cachedChests[i]
-                    if c and c.Parent and c:FindFirstChildWhichIsA("TouchTransmitter") then
-                        FlyStepTo(c.CFrame + Vector3.new(0, 2, 0))
-                        task.wait(0.18)
-                    else
-                        table.remove(cachedChests, i)
-                    end
-                end
-            end)
-        end
-    end
-end)
-
-task.spawn(function()
-    while task.wait(0.08) do
-        if Config.FastAttack then
-            pcall(AttackOnce)
-        end
-    end
-end)
-
-task.spawn(function()
-    while task.wait(1.5) do
-        if Config.ESPPlayer then
-            for _, plr in ipairs(Players:GetPlayers()) do
-                if plr ~= LocalPlayer and plr.Character and not plr.Character:FindFirstChild("RK_ESP") then
-                    local hl = Instance.new("Highlight")
-                    hl.Name = "RK_ESP"
-                    hl.FillColor = Accent
-                    hl.OutlineColor = Color3.new(1, 1, 1)
-                    hl.FillTransparency = 0.5
-                    hl.Parent = plr.Character
-                end
-            end
-        end
-        if Config.ESPChest then
-            RefreshChests()
-            for _, c in ipairs(cachedChests) do
-                if c and c.Parent and not c:FindFirstChild("RK_ChestESP") then
-                    local hl = Instance.new("Highlight")
-                    hl.Name = "RK_ChestESP"
-                    hl.FillColor = Color3.fromRGB(250, 204, 21)
-                    hl.FillTransparency = 0.4
-                    hl.Parent = c
-                end
-            end
-        end
-    end
-end)
