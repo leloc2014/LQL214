@@ -1,6 +1,5 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualUser = game:GetService("VirtualUser")
@@ -9,12 +8,13 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
-if PlayerGui:FindFirstChild("RealKidHubSmoothWater") then
-    PlayerGui:FindFirstChild("RealKidHubSmoothWater"):Destroy()
+if PlayerGui:FindFirstChild("RealKidHubClean") then
+    PlayerGui:FindFirstChild("RealKidHubClean"):Destroy()
 end
 
 local Config = {
     AutoFarm = false,
+    AutoLevelMob = true,
     AutoQuest = false,
     AutoBoss = false,
     BringMob = false,
@@ -22,21 +22,23 @@ local Config = {
     FastAttack = false,
     AutoEquipMelee = true,
     WalkOnWater = true,
-    SmoothFly = true,
     NoClip = false,
     AntiAFK = true,
     ESPPlayer = false,
     ESPChest = false,
     SelectedSea = "Sea 1",
+    SelectedTpGroup = "Islands",
+    TeleportSearch = "",
     SelectedBoss = nil,
+    SelectedLevelMob = nil,
     WalkSpeed = 16,
     JumpPower = 50,
-    FarmHeight = 7,
-    FlySpeed = 160
+    FarmHeight = 8,
+    FlySpeed = 140
 }
 
 local SavedCoords = {}
-local SaveFileName = "RealKidHub_SavedCoords.json"
+local SaveFileName = "lql214"
 
 local function LoadSavedCoordsFromFile()
     if typeof(isfile) == "function" and typeof(readfile) == "function" then
@@ -67,368 +69,356 @@ end
 
 LoadSavedCoordsFromFile()
 
+local LevelData = {
+    {MinLv = 1, MaxLv = 9, Sea = "Sea 1", Mob = "Bandit", Pos = Vector3.new(1145, 17, 1635)},
+    {MinLv = 10, MaxLv = 14, Sea = "Sea 1", Mob = "Monkey", Pos = Vector3.new(-1612, 37, 146)},
+    {MinLv = 15, MaxLv = 29, Sea = "Sea 1", Mob = "Gorilla", Pos = Vector3.new(-1217, 6, -456)},
+    {MinLv = 30, MaxLv = 39, Sea = "Sea 1", Mob = "Pirate", Pos = Vector3.new(-1210, 4, 3951)},
+    {MinLv = 40, MaxLv = 59, Sea = "Sea 1", Mob = "Brute", Pos = Vector3.new(-1145, 15, 4350)},
+    {MinLv = 60, MaxLv = 74, Sea = "Sea 1", Mob = "Desert Bandit", Pos = Vector3.new(932, 7, 4484)},
+    {MinLv = 75, MaxLv = 89, Sea = "Sea 1", Mob = "Desert Officer", Pos = Vector3.new(1572, 10, 4373)},
+    {MinLv = 90, MaxLv = 99, Sea = "Sea 1", Mob = "Snow Bandit", Pos = Vector3.new(1355, 87, -1329)},
+    {MinLv = 100, MaxLv = 119, Sea = "Sea 1", Mob = "Snowman", Pos = Vector3.new(1201, 144, -1442)},
+    {MinLv = 120, MaxLv = 149, Sea = "Sea 1", Mob = "Chief Petty Officer", Pos = Vector3.new(-4881, 23, 4273)},
+    {MinLv = 150, MaxLv = 174, Sea = "Sea 1", Mob = "Sky Bandit", Pos = Vector3.new(-4955, 296, -2901)},
+    {MinLv = 175, MaxLv = 189, Sea = "Sea 1", Mob = "Dark Master", Pos = Vector3.new(-5225, 430, -2278)},
+    {MinLv = 190, MaxLv = 209, Sea = "Sea 1", Mob = "Prisoner", Pos = Vector3.new(5308, 1, 474)},
+    {MinLv = 210, MaxLv = 249, Sea = "Sea 1", Mob = "Dangerous Prisoner", Pos = Vector3.new(5631, 20, 785)},
+    {MinLv = 250, MaxLv = 274, Sea = "Sea 1", Mob = "Toga Warrior", Pos = Vector3.new(-1820, 44, -2740)},
+    {MinLv = 275, MaxLv = 299, Sea = "Sea 1", Mob = "Gladiator", Pos = Vector3.new(-1267, 8, -3106)},
+    {MinLv = 300, MaxLv = 324, Sea = "Sea 1", Mob = "Military Soldier", Pos = Vector3.new(-5408, 11, 8473)},
+    {MinLv = 325, MaxLv = 374, Sea = "Sea 1", Mob = "Military Spy", Pos = Vector3.new(-5802, 86, 8828)},
+    {MinLv = 375, MaxLv = 399, Sea = "Sea 1", Mob = "Fishman Warrior", Pos = Vector3.new(60878, 19, 1543)},
+    {MinLv = 400, MaxLv = 449, Sea = "Sea 1", Mob = "Fishman Commando", Pos = Vector3.new(61922, 19, 1493)},
+    {MinLv = 450, MaxLv = 474, Sea = "Sea 1", Mob = "God's Guard", Pos = Vector3.new(-4721, 845, -1953)},
+    {MinLv = 475, MaxLv = 524, Sea = "Sea 1", Mob = "Shanda", Pos = Vector3.new(-7678, 5566, -497)},
+    {MinLv = 525, MaxLv = 549, Sea = "Sea 1", Mob = "Royal Squad", Pos = Vector3.new(-7624, 5605, -1460)},
+    {MinLv = 550, MaxLv = 624, Sea = "Sea 1", Mob = "Royal Soldier", Pos = Vector3.new(-7836, 5605, -1703)},
+    {MinLv = 625, MaxLv = 649, Sea = "Sea 1", Mob = "Galley Pirate", Pos = Vector3.new(5551, 79, 4567)},
+    {MinLv = 650, MaxLv = 699, Sea = "Sea 1", Mob = "Galley Captain", Pos = Vector3.new(5658, 79, 4887)},
+
+    {MinLv = 700, MaxLv = 724, Sea = "Sea 2", Mob = "Raider", Pos = Vector3.new(-746, 39, 2388)},
+    {MinLv = 725, MaxLv = 774, Sea = "Sea 2", Mob = "Mercenary", Pos = Vector3.new(-872, 141, 1293)},
+    {MinLv = 775, MaxLv = 799, Sea = "Sea 2", Mob = "Swan Pirate", Pos = Vector3.new(1065, 138, 1292)},
+    {MinLv = 800, MaxLv = 874, Sea = "Sea 2", Mob = "Factory Staff", Pos = Vector3.new(448, 200, -469)},
+    {MinLv = 875, MaxLv = 899, Sea = "Sea 2", Mob = "Marine Lieutenant", Pos = Vector3.new(-2440, 73, -3217)},
+    {MinLv = 900, MaxLv = 949, Sea = "Sea 2", Mob = "Marine Captain", Pos = Vector3.new(-1869, 73, -3319)},
+    {MinLv = 950, MaxLv = 974, Sea = "Sea 2", Mob = "Zombie", Pos = Vector3.new(-5722, 123, -978)},
+    {MinLv = 975, MaxLv = 999, Sea = "Sea 2", Mob = "Vampire", Pos = Vector3.new(-6033, 7, -1317)},
+    {MinLv = 1000, MaxLv = 1049, Sea = "Sea 2", Mob = "Snow Trooper", Pos = Vector3.new(1496, 401, -5332)},
+    {MinLv = 1050, MaxLv = 1099, Sea = "Sea 2", Mob = "Winter Warrior", Pos = Vector3.new(1265, 431, -5152)},
+    {MinLv = 1100, MaxLv = 1124, Sea = "Sea 2", Mob = "Lab Subordinate", Pos = Vector3.new(-5782, 42, -4484)},
+    {MinLv = 1125, MaxLv = 1174, Sea = "Sea 2", Mob = "Horned Warrior", Pos = Vector3.new(-6342, 16, -5747)},
+    {MinLv = 1175, MaxLv = 1199, Sea = "Sea 2", Mob = "Magma Ninja", Pos = Vector3.new(-5428, 78, -5959)},
+    {MinLv = 1200, MaxLv = 1249, Sea = "Sea 2", Mob = "Lava Pirate", Pos = Vector3.new(-5210, 33, -4700)},
+    {MinLv = 1250, MaxLv = 1274, Sea = "Sea 2", Mob = "Ship Deckhand", Pos = Vector3.new(1212, 126, 33000)},
+    {MinLv = 1275, MaxLv = 1299, Sea = "Sea 2", Mob = "Ship Engineer", Pos = Vector3.new(919, 43, 32787)},
+    {MinLv = 1300, MaxLv = 1349, Sea = "Sea 2", Mob = "Ship Steward", Pos = Vector3.new(919, 129, 33402)},
+    {MinLv = 1350, MaxLv = 1424, Sea = "Sea 2", Mob = "Ship Officer", Pos = Vector3.new(1036, 181, 33315)},
+    {MinLv = 1425, MaxLv = 1449, Sea = "Sea 2", Mob = "Arctic Warrior", Pos = Vector3.new(5966, 29, -6187)},
+    {MinLv = 1450, MaxLv = 1474, Sea = "Sea 2", Mob = "Snow Lurker", Pos = Vector3.new(5523, 58, -5364)},
+    {MinLv = 1475, MaxLv = 1499, Sea = "Sea 2", Mob = "Water Fighter", Pos = Vector3.new(-3385, 239, -10542)},
+    {MinLv = 1500, MaxLv = 1574, Sea = "Sea 2", Mob = "Tide Keeper", Pos = Vector3.new(-3570, 239, -10146)},
+
+    {MinLv = 1500, MaxLv = 1524, Sea = "Sea 3", Mob = "Pirate Millionaire", Pos = Vector3.new(-371, 44, 5556)},
+    {MinLv = 1525, MaxLv = 1574, Sea = "Sea 3", Mob = "Pistol Billionaire", Pos = Vector3.new(-469, 74, 5904)},
+    {MinLv = 1575, MaxLv = 1599, Sea = "Sea 3", Mob = "Dragon Crew Warrior", Pos = Vector3.new(6308, 52, -1135)},
+    {MinLv = 1600, MaxLv = 1624, Sea = "Sea 3", Mob = "Dragon Crew Archer", Pos = Vector3.new(6726, 97, 164)},
+    {MinLv = 1625, MaxLv = 1649, Sea = "Sea 3", Mob = "Hydra Leader", Pos = Vector3.new(5821, 1019, -110)},
+    {MinLv = 1650, MaxLv = 1699, Sea = "Sea 3", Mob = "Marine Commodore", Pos = Vector3.new(2286, 73, -7159)},
+    {MinLv = 1700, MaxLv = 1724, Sea = "Sea 3", Mob = "Marine Rear Admiral", Pos = Vector3.new(3679, 110, -6932)},
+    {MinLv = 1725, MaxLv = 1774, Sea = "Sea 3", Mob = "Fishman Raider", Pos = Vector3.new(-10553, 332, -8466)},
+    {MinLv = 1775, MaxLv = 1799, Sea = "Sea 3", Mob = "Fishman Captain", Pos = Vector3.new(-10993, 332, -8940)},
+    {MinLv = 1800, MaxLv = 1824, Sea = "Sea 3", Mob = "Forest Pirate", Pos = Vector3.new(-13206, 332, -7629)},
+    {MinLv = 1825, MaxLv = 1849, Sea = "Sea 3", Mob = "Mythological Pirate", Pos = Vector3.new(-13580, 470, -6984)},
+    {MinLv = 1850, MaxLv = 1899, Sea = "Sea 3", Mob = "Jungle Pirate", Pos = Vector3.new(-12125, 332, -10556)},
+    {MinLv = 1900, MaxLv = 1924, Sea = "Sea 3", Mob = "Musketeer Pirate", Pos = Vector3.new(-13282, 332, -9564)},
+    {MinLv = 1925, MaxLv = 1974, Sea = "Sea 3", Mob = "Reborn Skeleton", Pos = Vector3.new(-8761, 142, 6064)},
+    {MinLv = 1975, MaxLv = 1999, Sea = "Sea 3", Mob = "Living Zombie", Pos = Vector3.new(-10144, 149, 5915)},
+    {MinLv = 2000, MaxLv = 2024, Sea = "Sea 3", Mob = "Demonic Soul", Pos = Vector3.new(-9533, 172, 6165)},
+    {MinLv = 2025, MaxLv = 2049, Sea = "Sea 3", Mob = "Posessed Mummy", Pos = Vector3.new(-9582, 6, 6205)},
+    {MinLv = 2050, MaxLv = 2074, Sea = "Sea 3", Mob = "Peanut Scout", Pos = Vector3.new(-2103, 39, -10192)},
+    {MinLv = 2075, MaxLv = 2099, Sea = "Sea 3", Mob = "Peanut President", Pos = Vector3.new(-2150, 39, -10429)},
+    {MinLv = 2100, MaxLv = 2124, Sea = "Sea 3", Mob = "Ice Cream Chef", Pos = Vector3.new(-746, 79, -10894)},
+    {MinLv = 2125, MaxLv = 2149, Sea = "Sea 3", Mob = "Ice Cream Commander", Pos = Vector3.new(-555, 79, -11003)},
+    {MinLv = 2150, MaxLv = 2199, Sea = "Sea 3", Mob = "Cookie Crafter", Pos = Vector3.new(-2377, 73, -12084)},
+    {MinLv = 2200, MaxLv = 2224, Sea = "Sea 3", Mob = "Cake Guard", Pos = Vector3.new(-1598, 73, -12238)},
+    {MinLv = 2225, MaxLv = 2249, Sea = "Sea 3", Mob = "Baking Staff", Pos = Vector3.new(-1887, 71, -12977)},
+    {MinLv = 2250, MaxLv = 2274, Sea = "Sea 3", Mob = "Head Baker", Pos = Vector3.new(-2172, 71, -12788)},
+    {MinLv = 2275, MaxLv = 2299, Sea = "Sea 3", Mob = "Cocoa Warrior", Pos = Vector3.new(147, 25, -12239)},
+    {MinLv = 2300, MaxLv = 2349, Sea = "Sea 3", Mob = "Chocolate Bar Battler", Pos = Vector3.new(231, 25, -12498)},
+    {MinLv = 2350, MaxLv = 2374, Sea = "Sea 3", Mob = "Sweet Thief", Pos = Vector3.new(147, 25, -14031)},
+    {MinLv = 2375, MaxLv = 2399, Sea = "Sea 3", Mob = "Candy Rebel", Pos = Vector3.new(147, 25, -14677)},
+    {MinLv = 2400, MaxLv = 2449, Sea = "Sea 3", Mob = "Isle Outlaw", Pos = Vector3.new(-16434, 116, -224)},
+    {MinLv = 2450, MaxLv = 2474, Sea = "Sea 3", Mob = "Island Boy", Pos = Vector3.new(-16668, 13, 243)},
+    {MinLv = 2475, MaxLv = 2524, Sea = "Sea 3", Mob = "Sun-kissed Warrior", Pos = Vector3.new(-16364, 13, 756)},
+    {MinLv = 2525, MaxLv = 2600, Sea = "Sea 3", Mob = "Serpent Hunter", Pos = Vector3.new(-16542, 13, 1055)}
+}
+
 local WorldData = {
     ["Sea 1"] = {
         Islands = {
-            ["Starter Pirate"] = Vector3.new(1059, 16, 1546),
-            ["Starter Marine"] = Vector3.new(-2573, 7, 2046),
-            ["Jungle"] = Vector3.new(-1612, 37, 146),
-            ["Pirate Village"] = Vector3.new(-1181, 4, 3803),
-            ["Desert"] = Vector3.new(944, 7, 4373),
-            ["Frozen Village"] = Vector3.new(1347, 104, -1319),
-            ["Marine Fortress"] = Vector3.new(-5035, 29, 4326),
-            ["Skylands"] = Vector3.new(-4869, 718, -2622),
-            ["Prison"] = Vector3.new(4854, 6, 736),
-            ["Colosseum"] = Vector3.new(-1428, 8, -3014),
-            ["Magma Village"] = Vector3.new(-5313, 9, 8515),
-            ["Underwater City"] = Vector3.new(61163, 12, 1569),
-            ["Upper Skylands"] = Vector3.new(-7907, 5636, -1412),
-            ["Fountain City"] = Vector3.new(5127, 1001, 3865)
+            {"Starter Pirate", Vector3.new(1059, 16, 1546)},
+            {"Starter Marine", Vector3.new(-2573, 7, 2046)},
+            {"Jungle", Vector3.new(-1612, 37, 146)},
+            {"Pirate Village", Vector3.new(-1181, 4, 3803)},
+            {"Desert", Vector3.new(944, 7, 4373)},
+            {"Frozen Village", Vector3.new(1347, 104, -1319)},
+            {"Marine Fortress", Vector3.new(-5035, 29, 4326)},
+            {"Skylands", Vector3.new(-4869, 718, -2622)},
+            {"Prison", Vector3.new(4854, 6, 736)},
+            {"Colosseum", Vector3.new(-1428, 8, -3014)},
+            {"Magma Village", Vector3.new(-5313, 9, 8515)},
+            {"Underwater City", Vector3.new(61163, 12, 1569)},
+            {"Upper Skylands", Vector3.new(-7907, 5636, -1412)},
+            {"Fountain City", Vector3.new(5127, 1001, 3865)}
         },
         NPCs = {
-            ["Bandit Quest Giver"] = Vector3.new(1060, 17, 1547),
-            ["Jungle Quest Giver"] = Vector3.new(-1598, 37, 153),
-            ["Pirate Quest Giver"] = Vector3.new(-1145, 5, 3827),
-            ["Desert Quest Giver"] = Vector3.new(897, 6, 4389),
-            ["Frozen Quest Giver"] = Vector3.new(1386, 87, -1298),
-            ["Marine Quest Giver"] = Vector3.new(-5036, 29, 4326),
-            ["Sky Quest Giver"] = Vector3.new(-4840, 718, -2623),
-            ["Military Detective"] = Vector3.new(4854, 6, 736),
-            ["Colosseum Quest Giver"] = Vector3.new(-1578, 7, -2985),
-            ["Magma Quest Giver"] = Vector3.new(-5314, 12, 8517),
-            ["Fishman Quest Giver"] = Vector3.new(61163, 18, 1567),
-            ["Upper Sky Quest Giver"] = Vector3.new(-7859, 5545, -381),
-            ["Fountain Quest Giver"] = Vector3.new(5776, 41, 7266),
-            ["Blox Fruit Gacha"] = Vector3.new(-1418, 37, 306),
-            ["Experienced Captain"] = Vector3.new(-906, 38, -1425)
+            {"Bandit Quest Giver", Vector3.new(1060, 17, 1547)},
+            {"Jungle Quest Giver", Vector3.new(-1598, 37, 153)},
+            {"Pirate Quest Giver", Vector3.new(-1145, 5, 3827)},
+            {"Desert Quest Giver", Vector3.new(897, 6, 4389)},
+            {"Frozen Quest Giver", Vector3.new(1386, 87, -1298)},
+            {"Marine Quest Giver", Vector3.new(-5036, 29, 4326)},
+            {"Sky Quest Giver", Vector3.new(-4840, 718, -2623)},
+            {"Military Detective", Vector3.new(4854, 6, 736)},
+            {"Colosseum Quest Giver", Vector3.new(-1578, 7, -2985)},
+            {"Magma Quest Giver", Vector3.new(-5314, 12, 8517)},
+            {"Fishman Quest Giver", Vector3.new(61163, 18, 1567)},
+            {"Upper Sky Quest Giver", Vector3.new(-7859, 5545, -381)},
+            {"Fountain Quest Giver", Vector3.new(5776, 41, 7266)},
+            {"Experienced Captain", Vector3.new(-906, 38, -1425)}
         },
-        Mobs = {
-            ["Bandit"] = Vector3.new(1145, 17, 1635),
-            ["Monkey"] = Vector3.new(-1612, 37, 146),
-            ["Gorilla"] = Vector3.new(-1217, 6, -456),
-            ["Pirate"] = Vector3.new(-1210, 4, 3951),
-            ["Brute"] = Vector3.new(-1145, 15, 4350),
-            ["Desert Bandit"] = Vector3.new(932, 7, 4484),
-            ["Desert Officer"] = Vector3.new(1572, 10, 4373),
-            ["Snow Bandit"] = Vector3.new(1355, 87, -1329),
-            ["Snowman"] = Vector3.new(1201, 144, -1442),
-            ["Chief Petty Officer"] = Vector3.new(-4881, 23, 4273),
-            ["Sky Bandit"] = Vector3.new(-4955, 296, -2901),
-            ["Dark Master"] = Vector3.new(-5225, 430, -2278),
-            ["Prisoner"] = Vector3.new(5308, 1, 474),
-            ["Dangerous Prisoner"] = Vector3.new(5631, 20, 785),
-            ["Toga Warrior"] = Vector3.new(-1820, 44, -2740),
-            ["Gladiator"] = Vector3.new(-1267, 8, -3106),
-            ["Military Soldier"] = Vector3.new(-5408, 11, 8473),
-            ["Military Spy"] = Vector3.new(-5802, 86, 8828),
-            ["Fishman Warrior"] = Vector3.new(60878, 19, 1543),
-            ["Fishman Commando"] = Vector3.new(61922, 19, 1493),
-            ["God's Guard"] = Vector3.new(-4721, 845, -1953),
-            ["Shanda"] = Vector3.new(-7678, 5566, -497),
-            ["Royal Squad"] = Vector3.new(-7624, 5605, -1460),
-            ["Royal Soldier"] = Vector3.new(-7836, 5605, -1703),
-            ["Galley Pirate"] = Vector3.new(5551, 79, 4567),
-            ["Galley Captain"] = Vector3.new(5658, 79, 4887)
+        Shops = {
+            {"Blox Fruit Gacha", Vector3.new(-1418, 37, 306)},
+            {"Frozen Melee / Aura", Vector3.new(1386, 87, -1298)},
+            {"Underwater Ability Teacher", Vector3.new(61163, 18, 1567)}
         },
         Bosses = {
-            ["The Gorilla King"] = Vector3.new(-1243, 12, -456),
-            ["Bobby"] = Vector3.new(-1147, 15, 4358),
-            ["Yeti"] = Vector3.new(1185, 106, -1518),
-            ["Vice Admiral"] = Vector3.new(-4807, 21, 4360),
-            ["Warden"] = Vector3.new(5278, 2, 799),
-            ["Chief Warden"] = Vector3.new(5278, 2, 799),
-            ["Swan"] = Vector3.new(5230, 5, 749),
-            ["Magma Admiral"] = Vector3.new(-5690, 18, 8735),
-            ["Fishman Lord"] = Vector3.new(61351, 31, 1093),
-            ["Wysper"] = Vector3.new(-7866, 5571, -545),
-            ["Thunder God"] = Vector3.new(-7760, 5607, -2315),
-            ["Cyborg"] = Vector3.new(6094, 73, 3825)
+            {"The Gorilla King", Vector3.new(-1243, 12, -456)},
+            {"Bobby", Vector3.new(-1147, 15, 4358)},
+            {"Yeti", Vector3.new(1185, 106, -1518)},
+            {"Vice Admiral", Vector3.new(-4807, 21, 4360)},
+            {"Warden", Vector3.new(5278, 2, 799)},
+            {"Chief Warden", Vector3.new(5278, 2, 799)},
+            {"Swan", Vector3.new(5230, 5, 749)},
+            {"Magma Admiral", Vector3.new(-5690, 18, 8735)},
+            {"Fishman Lord", Vector3.new(61351, 31, 1093)},
+            {"Wysper", Vector3.new(-7866, 5571, -545)},
+            {"Thunder God", Vector3.new(-7760, 5607, -2315)},
+            {"Cyborg", Vector3.new(6094, 73, 3825)}
         },
         RaidsAndEvents = {
-            ["Saber Expert Room"] = Vector3.new(-1458, 30, -50),
-            ["Middle Town Next Sea NPC"] = Vector3.new(-6554, 83, -132),
-            ["Marine Starter Spawn"] = Vector3.new(-2573, 7, 2046)
-        },
-        ShopsAndFruit = {
-            ["Jungle Fruit Dealer"] = Vector3.new(-1418, 37, 306),
-            ["Frozen Melee / Aura"] = Vector3.new(1386, 87, -1298),
-            ["Underwater Ability Teacher"] = Vector3.new(61163, 18, 1567)
+            {"Saber Expert Room", Vector3.new(-1458, 30, -50)},
+            {"Middle Town Next Sea NPC", Vector3.new(-6554, 83, -132)},
+            {"Marine Starter Spawn", Vector3.new(-2573, 7, 2046)}
         }
     },
     ["Sea 2"] = {
         Islands = {
-            ["Kingdom of Rose"] = Vector3.new(-415, 73, 299),
-            ["Green Zone"] = Vector3.new(-2448, 73, -3210),
-            ["Graveyard"] = Vector3.new(-5411, 49, -721),
-            ["Snow Mountain"] = Vector3.new(1384, 427, -4503),
-            ["Hot and Cold"] = Vector3.new(-5456, 16, -5236),
-            ["Cursed Ship"] = Vector3.new(923, 125, 32853),
-            ["Ice Castle"] = Vector3.new(5409, 28, -6236),
-            ["Forgotten Island"] = Vector3.new(-3032, 240, -10196)
+            {"Kingdom of Rose", Vector3.new(-415, 73, 299)},
+            {"Green Zone", Vector3.new(-2448, 73, -3210)},
+            {"Graveyard", Vector3.new(-5411, 49, -721)},
+            {"Snow Mountain", Vector3.new(1384, 427, -4503)},
+            {"Hot and Cold", Vector3.new(-5456, 16, -5236)},
+            {"Cursed Ship", Vector3.new(923, 125, 32853)},
+            {"Ice Castle", Vector3.new(5409, 28, -6236)},
+            {"Forgotten Island", Vector3.new(-3032, 240, -10196)}
         },
         NPCs = {
-            ["Quest Giver (Rose)"] = Vector3.new(-405, 73, 298),
-            ["Bartilo"] = Vector3.new(-456, 73, 299),
-            ["Awakening Expert"] = Vector3.new(-5617, 79, -588),
-            ["Quest Giver (Green Zone)"] = Vector3.new(-2448, 73, -3210),
-            ["Quest Giver (Graveyard)"] = Vector3.new(-5411, 49, -721),
-            ["Quest Giver (Snow)"] = Vector3.new(1384, 427, -4503),
-            ["Mysterious Scientist"] = Vector3.new(-5440, 16, -5240),
-            ["Quest Giver (Ice Castle)"] = Vector3.new(5409, 28, -6236),
-            ["Quest Giver (Forgotten)"] = Vector3.new(-3032, 240, -10196),
-            ["Blox Fruit Gacha"] = Vector3.new(-401, 73, 298)
+            {"Quest Giver (Rose)", Vector3.new(-405, 73, 298)},
+            {"Bartilo", Vector3.new(-456, 73, 299)},
+            {"Awakening Expert", Vector3.new(-5617, 79, -588)},
+            {"Quest Giver (Green Zone)", Vector3.new(-2448, 73, -3210)},
+            {"Quest Giver (Graveyard)", Vector3.new(-5411, 49, -721)},
+            {"Quest Giver (Snow)", Vector3.new(1384, 427, -4503)},
+            {"Mysterious Scientist", Vector3.new(-5440, 16, -5240)},
+            {"Quest Giver (Ice Castle)", Vector3.new(5409, 28, -6236)},
+            {"Quest Giver (Forgotten)", Vector3.new(-3032, 240, -10196)}
         },
-        Mobs = {
-            ["Raider"] = Vector3.new(-746, 39, 2388),
-            ["Mercenary"] = Vector3.new(-872, 141, 1293),
-            ["Swan Pirate"] = Vector3.new(1065, 138, 1292),
-            ["Factory Staff"] = Vector3.new(448, 200, -469),
-            ["Marine Lieutenant"] = Vector3.new(-2440, 73, -3217),
-            ["Marine Captain"] = Vector3.new(-1869, 73, -3319),
-            ["Zombie"] = Vector3.new(-5722, 123, -978),
-            ["Vampire"] = Vector3.new(-6033, 7, -1317),
-            ["Snow Trooper"] = Vector3.new(1496, 401, -5332),
-            ["Winter Warrior"] = Vector3.new(1265, 431, -5152),
-            ["Lab Subordinate"] = Vector3.new(-5782, 42, -4484),
-            ["Horned Warrior"] = Vector3.new(-6342, 16, -5747),
-            ["Magma Ninja"] = Vector3.new(-5428, 78, -5959),
-            ["Lava Pirate"] = Vector3.new(-5210, 33, -4700),
-            ["Ship Deckhand"] = Vector3.new(1212, 126, 33000),
-            ["Ship Engineer"] = Vector3.new(919, 43, 32787),
-            ["Ship Steward"] = Vector3.new(919, 129, 33402),
-            ["Ship Officer"] = Vector3.new(1036, 181, 33315),
-            ["Arctic Warrior"] = Vector3.new(5966, 29, -6187),
-            ["Snow Lurker"] = Vector3.new(5523, 58, -5364),
-            ["Water Fighter"] = Vector3.new(-3385, 239, -10542),
-            ["Tide Keeper"] = Vector3.new(-3570, 239, -10146)
+        Shops = {
+            {"Cafe Fruit Dealer / Gacha", Vector3.new(-401, 73, 298)},
+            {"Hot and Cold Lab NPC", Vector3.new(-5440, 16, -5240)},
+            {"Dragon Claw / Sanguine", Vector3.new(5661, 1202, 929)}
         },
         Bosses = {
-            ["Diamond"] = Vector3.new(-1569, 199, -31),
-            ["Jeremy"] = Vector3.new(2006, 448, 756),
-            ["Fajita"] = Vector3.new(-2086, 73, -4208),
-            ["Smoke Admiral"] = Vector3.new(-5534, 159, -5371),
-            ["Cursed Captain"] = Vector3.new(916, 125, 32899),
-            ["Darkbeard"] = Vector3.new(3677, 13, -3231),
-            ["Order"] = Vector3.new(-6217, 28, -5053)
+            {"Diamond", Vector3.new(-1569, 199, -31)},
+            {"Jeremy", Vector3.new(2006, 448, 756)},
+            {"Fajita", Vector3.new(-2086, 73, -4208)},
+            {"Smoke Admiral", Vector3.new(-5534, 159, -5371)},
+            {"Cursed Captain", Vector3.new(916, 125, 32899)},
+            {"Darkbeard", Vector3.new(3677, 13, -3231)},
+            {"Order", Vector3.new(-6217, 28, -5053)}
         },
         RaidsAndEvents = {
-            ["Raid Lab / Awakening"] = Vector3.new(-6438, 250, -4501),
-            ["Cursed Ship Entrance"] = Vector3.new(923, 125, 32853),
-            ["Dark Arena"] = Vector3.new(3780, 14, -3498)
-        },
-        ShopsAndFruit = {
-            ["Cafe Fruit Dealer / Gacha"] = Vector3.new(-401, 73, 298),
-            ["Hot and Cold Lab NPC"] = Vector3.new(-5440, 16, -5240),
-            ["Dragon Claw / Sanguine"] = Vector3.new(5661, 1202, 929)
+            {"Raid Lab / Awakening", Vector3.new(-6438, 250, -4501)},
+            {"Cursed Ship Entrance", Vector3.new(923, 125, 32853)},
+            {"Dark Arena", Vector3.new(3780, 14, -3498)}
         }
     },
     ["Sea 3"] = {
         Islands = {
-            ["Port Town"] = Vector3.new(-290, 44, 5580),
-            ["Hydra Island"] = Vector3.new(5746, 611, -276),
-            ["Great Tree"] = Vector3.new(2681, 1682, -7190),
-            ["Floating Turtle"] = Vector3.new(-13274, 532, -7575),
-            ["Castle on the Sea"] = Vector3.new(-5085, 315, -3155),
-            ["Haunted Castle"] = Vector3.new(-9515, 142, 6073),
-            ["Peanut Land"] = Vector3.new(-2062, 38, -10288),
-            ["Ice Cream Land"] = Vector3.new(-902, 79, -10988),
-            ["Cake Land"] = Vector3.new(-1887, 71, -12366),
-            ["Chocolate Land"] = Vector3.new(147, 25, -12775),
-            ["Candy Island"] = Vector3.new(-1449, 16, -14384),
-            ["Tiki Outpost"] = Vector3.new(-16223, 9, 438)
+            {"Port Town", Vector3.new(-290, 44, 5580)},
+            {"Hydra Island", Vector3.new(5746, 611, -276)},
+            {"Great Tree", Vector3.new(2681, 1682, -7190)},
+            {"Floating Turtle", Vector3.new(-13274, 532, -7575)},
+            {"Castle on the Sea", Vector3.new(-5085, 315, -3155)},
+            {"Haunted Castle", Vector3.new(-9515, 142, 6073)},
+            {"Peanut Land", Vector3.new(-2062, 38, -10288)},
+            {"Ice Cream Land", Vector3.new(-902, 79, -10988)},
+            {"Cake Land", Vector3.new(-1887, 71, -12366)},
+            {"Chocolate Land", Vector3.new(147, 25, -12775)},
+            {"Candy Island", Vector3.new(-1449, 16, -14384)},
+            {"Tiki Outpost", Vector3.new(-16223, 9, 438)}
         },
         NPCs = {
-            ["Quest Giver (Port Town)"] = Vector3.new(-290, 44, 5580),
-            ["Quest Giver (Hydra)"] = Vector3.new(5746, 611, -276),
-            ["Quest Giver (Great Tree)"] = Vector3.new(2681, 1682, -7190),
-            ["Quest Giver (Turtle)"] = Vector3.new(-13274, 532, -7575),
-            ["Elite Hunter"] = Vector3.new(-5418, 314, -2212),
-            ["Death King"] = Vector3.new(-9516, 142, 6205),
-            ["Quest Giver (Peanut)"] = Vector3.new(-2062, 38, -10288),
-            ["Quest Giver (Ice Cream)"] = Vector3.new(-902, 79, -10988),
-            ["Quest Giver (Cake)"] = Vector3.new(-1887, 71, -12366),
-            ["Quest Giver (Chocolate)"] = Vector3.new(147, 25, -12775),
-            ["Quest Giver (Tiki)"] = Vector3.new(-16223, 9, 438),
-            ["Blox Fruit Gacha"] = Vector3.new(-11723, 332, -8863)
+            {"Quest Giver (Port Town)", Vector3.new(-290, 44, 5580)},
+            {"Quest Giver (Hydra)", Vector3.new(5746, 611, -276)},
+            {"Quest Giver (Great Tree)", Vector3.new(2681, 1682, -7190)},
+            {"Quest Giver (Turtle)", Vector3.new(-13274, 532, -7575)},
+            {"Elite Hunter", Vector3.new(-5418, 314, -2212)},
+            {"Death King", Vector3.new(-9516, 142, 6205)},
+            {"Quest Giver (Peanut)", Vector3.new(-2062, 38, -10288)},
+            {"Quest Giver (Ice Cream)", Vector3.new(-902, 79, -10988)},
+            {"Quest Giver (Cake)", Vector3.new(-1887, 71, -12366)},
+            {"Quest Giver (Chocolate)", Vector3.new(147, 25, -12775)},
+            {"Quest Giver (Tiki)", Vector3.new(-16223, 9, 438)}
         },
-        Mobs = {
-            ["Pirate Millionaire"] = Vector3.new(-371, 44, 5556),
-            ["Pistol Billionaire"] = Vector3.new(-469, 74, 5904),
-            ["Dragon Crew Warrior"] = Vector3.new(6308, 52, -1135),
-            ["Dragon Crew Archer"] = Vector3.new(6726, 97, 164),
-            ["Hydra Leader"] = Vector3.new(5821, 1019, -110),
-            ["Marine Commodore"] = Vector3.new(2286, 73, -7159),
-            ["Marine Rear Admiral"] = Vector3.new(3679, 110, -6932),
-            ["Fishman Raider"] = Vector3.new(-10553, 332, -8466),
-            ["Fishman Captain"] = Vector3.new(-10993, 332, -8940),
-            ["Forest Pirate"] = Vector3.new(-13206, 332, -7629),
-            ["Mythological Pirate"] = Vector3.new(-13580, 470, -6984),
-            ["Jungle Pirate"] = Vector3.new(-12125, 332, -10556),
-            ["Musketeer Pirate"] = Vector3.new(-13282, 332, -9564),
-            ["Reborn Skeleton"] = Vector3.new(-8761, 142, 6064),
-            ["Living Zombie"] = Vector3.new(-10144, 149, 5915),
-            ["Demonic Soul"] = Vector3.new(-9533, 172, 6165),
-            ["Posessed Mummy"] = Vector3.new(-9582, 6, 6205),
-            ["Peanut Scout"] = Vector3.new(-2103, 39, -10192),
-            ["Peanut President"] = Vector3.new(-2150, 39, -10429),
-            ["Ice Cream Chef"] = Vector3.new(-746, 79, -10894),
-            ["Ice Cream Commander"] = Vector3.new(-555, 79, -11003),
-            ["Cookie Crafter"] = Vector3.new(-2377, 73, -12084),
-            ["Cake Guard"] = Vector3.new(-1598, 73, -12238),
-            ["Baking Staff"] = Vector3.new(-1887, 71, -12977),
-            ["Head Baker"] = Vector3.new(-2172, 71, -12788),
-            ["Cocoa Warrior"] = Vector3.new(147, 25, -12239),
-            ["Chocolate Bar Battler"] = Vector3.new(231, 25, -12498),
-            ["Sweet Thief"] = Vector3.new(147, 25, -14031),
-            ["Candy Rebel"] = Vector3.new(147, 25, -14677),
-            ["Isle Outlaw"] = Vector3.new(-16434, 116, -224),
-            ["Island Boy"] = Vector3.new(-16668, 13, 243),
-            ["Sun-kissed Warrior"] = Vector3.new(-16364, 13, 756),
-            ["Serpent Hunter"] = Vector3.new(-16542, 13, 1055)
+        Shops = {
+            {"Mansion Fruit Gacha", Vector3.new(-11723, 332, -8863)},
+            {"Port Town Shop", Vector3.new(-290, 44, 5580)},
+            {"Castle Elite NPC", Vector3.new(-5418, 314, -2212)}
         },
         Bosses = {
-            ["Stone"] = Vector3.new(-1049, 40, 6791),
-            ["Island Empress"] = Vector3.new(5730, 602, 199),
-            ["Kilo Admiral"] = Vector3.new(2864, 424, -7200),
-            ["Captain Elephant"] = Vector3.new(-13376, 316, -8405),
-            ["Beautiful Pirate"] = Vector3.new(5312, 23, -119),
-            ["Cake Queen"] = Vector3.new(-709, 381, -11411)
+            {"Stone", Vector3.new(-1049, 40, 6791)},
+            {"Island Empress", Vector3.new(5730, 602, 199)},
+            {"Kilo Admiral", Vector3.new(2864, 424, -7200)},
+            {"Captain Elephant", Vector3.new(-13376, 316, -8405)},
+            {"Beautiful Pirate", Vector3.new(5312, 23, -119)},
+            {"Cake Queen", Vector3.new(-709, 381, -11411)}
         },
         RaidsAndEvents = {
-            ["Castle Raid / Awakening"] = Vector3.new(-5085, 315, -3155),
-            ["Haunted Castle Interior"] = Vector3.new(-9515, 142, 6073),
-            ["Tiki Outpost Shrine"] = Vector3.new(-16223, 9, 438)
-        },
-        ShopsAndFruit = {
-            ["Mansion Fruit Gacha"] = Vector3.new(-11723, 332, -8863),
-            ["Port Town Shop"] = Vector3.new(-290, 44, 5580),
-            ["Castle Elite NPC"] = Vector3.new(-5418, 314, -2212)
+            {"Castle Raid / Awakening", Vector3.new(-5085, 315, -3155)},
+            {"Haunted Castle Interior", Vector3.new(-9515, 142, 6073)},
+            {"Tiki Outpost Shrine", Vector3.new(-16223, 9, 438)}
         }
     }
 }
 
+local Accent = Color3.fromRGB(16, 185, 129)
+local BgDark = Color3.fromRGB(14, 15, 19)
+local PanelBg = Color3.fromRGB(20, 22, 28)
+local RowBg = Color3.fromRGB(26, 29, 37)
+local TextMain = Color3.fromRGB(241, 245, 249)
+local TextDim = Color3.fromRGB(148, 163, 184)
+
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "RealKidHubSmoothWater"
+ScreenGui.Name = "RealKidHubClean"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = PlayerGui
 
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Name = "ToggleButton"
-ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
-ToggleBtn.Position = UDim2.new(0, 20, 0.25, 0)
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+ToggleBtn.Size = UDim2.new(0, 46, 0, 46)
+ToggleBtn.Position = UDim2.new(0, 16, 0.24, 0)
+ToggleBtn.BackgroundColor3 = PanelBg
 ToggleBtn.Text = "RK"
-ToggleBtn.TextColor3 = Color3.fromRGB(0, 220, 130)
+ToggleBtn.TextColor3 = Accent
 ToggleBtn.Font = Enum.Font.GothamBold
-ToggleBtn.TextSize = 18
+ToggleBtn.TextSize = 16
 ToggleBtn.Parent = ScreenGui
 
-local ToggleCorner = Instance.new("UICorner")
-ToggleCorner.CornerRadius = UDim.new(1, 0)
-ToggleCorner.Parent = ToggleBtn
-
-local ToggleStroke = Instance.new("UIStroke")
-ToggleStroke.Color = Color3.fromRGB(0, 220, 130)
-ToggleStroke.Thickness = 2
-ToggleStroke.Parent = ToggleBtn
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
+local tStroke = Instance.new("UIStroke", ToggleBtn)
+tStroke.Color = Accent
+tStroke.Thickness = 1.6
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 540, 0, 355)
-MainFrame.Position = UDim2.new(0.5, -270, 0.5, -177)
-MainFrame.BackgroundColor3 = Color3.fromRGB(15, 16, 20)
+MainFrame.Size = UDim2.new(0, 500, 0, 320)
+MainFrame.Position = UDim2.new(0.5, -250, 0.5, -160)
+MainFrame.BackgroundColor3 = BgDark
 MainFrame.BorderSizePixel = 0
 MainFrame.Visible = true
 MainFrame.Parent = ScreenGui
 
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 10)
-MainCorner.Parent = MainFrame
-
-local MainStroke = Instance.new("UIStroke")
-MainStroke.Color = Color3.fromRGB(0, 220, 130)
-MainStroke.Thickness = 1.5
-MainStroke.Parent = MainFrame
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
+local mStroke = Instance.new("UIStroke", MainFrame)
+mStroke.Color = Color3.fromRGB(36, 41, 52)
+mStroke.Thickness = 1.2
 
 local TopBar = Instance.new("Frame")
 TopBar.Name = "TopBar"
-TopBar.Size = UDim2.new(1, 0, 0, 38)
-TopBar.BackgroundColor3 = Color3.fromRGB(22, 24, 30)
+TopBar.Size = UDim2.new(1, 0, 0, 36)
+TopBar.BackgroundColor3 = PanelBg
 TopBar.BorderSizePixel = 0
 TopBar.Parent = MainFrame
 
-local TopCorner = Instance.new("UICorner")
-TopCorner.CornerRadius = UDim.new(0, 10)
-TopCorner.Parent = TopBar
+Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 12)
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -50, 1, 0)
+Title.Size = UDim2.new(1, -80, 1, 0)
 Title.Position = UDim2.new(0, 14, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "REALKID HUB | SMOOTH & WATER"
-Title.TextColor3 = Color3.fromRGB(0, 220, 130)
+Title.Text = "REALKID HUB"
+Title.TextColor3 = TextMain
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 15
+Title.TextSize = 14
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TopBar
 
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-CloseBtn.Position = UDim2.new(1, -34, 0, 4)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(35, 38, 46)
+CloseBtn.Size = UDim2.new(0, 26, 0, 26)
+CloseBtn.Position = UDim2.new(1, -32, 0, 5)
+CloseBtn.BackgroundColor3 = RowBg
 CloseBtn.Text = "X"
-CloseBtn.TextColor3 = Color3.fromRGB(255, 85, 85)
+CloseBtn.TextColor3 = Color3.fromRGB(248, 113, 113)
 CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 14
+CloseBtn.TextSize = 12
 CloseBtn.Parent = TopBar
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 
-local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0, 6)
-CloseCorner.Parent = CloseBtn
-
-local Sidebar = Instance.new("Frame")
+local Sidebar = Instance.new("ScrollingFrame")
 Sidebar.Name = "Sidebar"
-Sidebar.Size = UDim2.new(0, 135, 1, -46)
-Sidebar.Position = UDim2.new(0, 6, 0, 42)
-Sidebar.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
+Sidebar.Size = UDim2.new(0, 126, 1, -48)
+Sidebar.Position = UDim2.new(0, 8, 0, 42)
+Sidebar.BackgroundColor3 = PanelBg
 Sidebar.BorderSizePixel = 0
+Sidebar.ScrollBarThickness = 2
+Sidebar.CanvasSize = UDim2.new(0, 0, 0, 0)
 Sidebar.Parent = MainFrame
+Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 8)
 
-local SidebarCorner = Instance.new("UICorner")
-SidebarCorner.CornerRadius = UDim.new(0, 8)
-SidebarCorner.Parent = Sidebar
+local sideLayout = Instance.new("UIListLayout", Sidebar)
+sideLayout.Padding = UDim.new(0, 4)
+sideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+local sidePad = Instance.new("UIPadding", Sidebar)
+sidePad.PaddingTop = UDim.new(0, 6)
+sidePad.PaddingBottom = UDim.new(0, 6)
 
-local SidebarLayout = Instance.new("UIListLayout")
-SidebarLayout.Padding = UDim.new(0, 4)
-SidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-SidebarLayout.Parent = Sidebar
-
-local SidebarPad = Instance.new("UIPadding")
-SidebarPad.PaddingTop = UDim.new(0, 6)
-SidebarPad.Parent = Sidebar
+sideLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    Sidebar.CanvasSize = UDim2.new(0, 0, 0, sideLayout.AbsoluteContentSize.Y + 12)
+end)
 
 local ContentHolder = Instance.new("Frame")
 ContentHolder.Name = "ContentHolder"
-ContentHolder.Size = UDim2.new(1, -153, 1, -46)
-ContentHolder.Position = UDim2.new(0, 147, 0, 42)
-ContentHolder.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
+ContentHolder.Size = UDim2.new(1, -146, 1, -48)
+ContentHolder.Position = UDim2.new(0, 140, 0, 42)
+ContentHolder.BackgroundColor3 = PanelBg
 ContentHolder.BorderSizePixel = 0
 ContentHolder.Parent = MainFrame
+Instance.new("UICorner", ContentHolder).CornerRadius = UDim.new(0, 8)
 
-local ContentCorner = Instance.new("UICorner")
-ContentCorner.CornerRadius = UDim.new(0, 8)
-ContentCorner.Parent = ContentHolder
-
-local function MakeDraggable(dragHandle, targetFrame)
+local function MakeDraggable(handle, target)
     local dragging = false
     local dragInput, dragStart, startPos
 
-    dragHandle.InputBegan:Connect(function(input)
+    handle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
-            startPos = targetFrame.Position
+            startPos = target.Position
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -437,7 +427,7 @@ local function MakeDraggable(dragHandle, targetFrame)
         end
     end)
 
-    dragHandle.InputChanged:Connect(function(input)
+    handle.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
             dragInput = input
         end
@@ -446,7 +436,7 @@ local function MakeDraggable(dragHandle, targetFrame)
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             local delta = input.Position - dragStart
-            targetFrame.Position = UDim2.new(
+            target.Position = UDim2.new(
                 startPos.X.Scale,
                 startPos.X.Offset + delta.X,
                 startPos.Y.Scale,
@@ -468,12 +458,40 @@ CloseBtn.MouseButton1Click:Connect(function()
 end)
 
 local StatusLabel
-local lastStatusText = ""
+local lastStatus = ""
 local function SetStatus(msg)
-    if msg ~= lastStatusText and StatusLabel then
-        lastStatusText = msg
+    if msg ~= lastStatus and StatusLabel then
+        lastStatus = msg
         StatusLabel.Text = msg
     end
+end
+
+local function GetPlayerLevel()
+    local dataFolder = LocalPlayer:FindFirstChild("Data")
+    local levelVal = dataFolder and dataFolder:FindFirstChild("Level")
+    if levelVal and typeof(levelVal.Value) == "number" then
+        return levelVal.Value
+    end
+    local stats = LocalPlayer:FindFirstChild("leaderstats")
+    local lv = stats and (stats:FindFirstChild("Level") or stats:FindFirstChild("Lv"))
+    if lv and typeof(lv.Value) == "number" then
+        return lv.Value
+    end
+    return 1
+end
+
+local function GetLevelEntryByPlayerLevel()
+    local lv = GetPlayerLevel()
+    local best = LevelData[1]
+    for _, entry in ipairs(LevelData) do
+        if lv >= entry.MinLv and lv <= entry.MaxLv then
+            return entry
+        end
+        if lv >= entry.MinLv then
+            best = entry
+        end
+    end
+    return best
 end
 
 local function GetRoot()
@@ -481,45 +499,45 @@ local function GetRoot()
     return char and char:FindFirstChild("HumanoidRootPart")
 end
 
-local waterPart = Instance.new("Part")
-waterPart.Name = "RK_WaterFloor"
-waterPart.Anchored = true
-waterPart.CanCollide = true
-waterPart.Transparency = 1
-waterPart.Size = Vector3.new(28, 1, 28)
-waterPart.Parent = workspace
+local hoverVel = Instance.new("BodyVelocity")
+hoverVel.Name = "RK_HoverVelocity"
+hoverVel.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+hoverVel.Velocity = Vector3.zero
 
-local activeTween
-local function SmoothMoveTo(targetCFrame, speed)
+local function SetHoverState(enabled)
+    local root = GetRoot()
+    if enabled and root then
+        if hoverVel.Parent ~= root then
+            hoverVel.Parent = root
+        end
+        hoverVel.Velocity = Vector3.zero
+    else
+        if hoverVel.Parent then
+            hoverVel.Parent = nil
+        end
+    end
+end
+
+local function FlyStepTo(targetCFrame)
     local root = GetRoot()
     if not root then return end
+    SetHoverState(true)
 
-    local dist = (root.Position - targetCFrame.Position).Magnitude
-    if not Config.SmoothFly or dist <= 18 then
-        if activeTween then
-            activeTween:Cancel()
-            activeTween = nil
-        end
+    local delta = targetCFrame.Position - root.Position
+    local dist = delta.Magnitude
+    if dist > 6 then
+        local stepDist = math.min(dist, Config.FlySpeed * 0.06)
+        local nextPos = root.Position + delta.Unit * stepDist
+        root.CFrame = CFrame.lookAt(nextPos, targetCFrame.Position)
+    else
         root.CFrame = targetCFrame
-        return
     end
-
-    local moveSpeed = math.max(speed or Config.FlySpeed, 60)
-    local duration = math.clamp(dist / moveSpeed, 0.05, 1.2)
-    if activeTween then
-        activeTween:Cancel()
-    end
-    activeTween = TweenService:Create(
-        root,
-        TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
-        {CFrame = targetCFrame}
-    )
-    activeTween:Play()
 end
 
 local function TeleportToPos(pos)
-    if typeof(pos) == "Vector3" then
-        SmoothMoveTo(CFrame.new(pos + Vector3.new(0, 4, 0)), Config.FlySpeed)
+    local root = GetRoot()
+    if root and typeof(pos) == "Vector3" then
+        root.CFrame = CFrame.new(pos + Vector3.new(0, 4, 0))
     end
 end
 
@@ -555,379 +573,472 @@ local Pages = {}
 local TabButtons = {}
 
 local function CreateTab(name)
-    local TabBtn = Instance.new("TextButton")
-    TabBtn.Size = UDim2.new(0, 120, 0, 28)
-    TabBtn.BackgroundColor3 = Color3.fromRGB(28, 31, 38)
-    TabBtn.Text = name
-    TabBtn.TextColor3 = Color3.fromRGB(180, 185, 195)
-    TabBtn.Font = Enum.Font.GothamSemibold
-    TabBtn.TextSize = 11
-    TabBtn.Parent = Sidebar
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 112, 0, 28)
+    btn.BackgroundColor3 = RowBg
+    btn.Text = name
+    btn.TextColor3 = TextDim
+    btn.Font = Enum.Font.GothamSemibold
+    btn.TextSize = 11
+    btn.Parent = Sidebar
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 
-    local BtnCorner = Instance.new("UICorner")
-    BtnCorner.CornerRadius = UDim.new(0, 6)
-    BtnCorner.Parent = TabBtn
+    local page = Instance.new("ScrollingFrame")
+    page.Name = name .. "Page"
+    page.Size = UDim2.new(1, -12, 1, -12)
+    page.Position = UDim2.new(0, 6, 0, 6)
+    page.BackgroundTransparency = 1
+    page.BorderSizePixel = 0
+    page.ScrollBarThickness = 2
+    page.ScrollBarImageColor3 = Accent
+    page.CanvasSize = UDim2.new(0, 0, 0, 0)
+    page.Visible = false
+    page.Parent = ContentHolder
 
-    local Page = Instance.new("ScrollingFrame")
-    Page.Name = name .. "Page"
-    Page.Size = UDim2.new(1, -12, 1, -12)
-    Page.Position = UDim2.new(0, 6, 0, 6)
-    Page.BackgroundTransparency = 1
-    Page.BorderSizePixel = 0
-    Page.ScrollBarThickness = 3
-    Page.ScrollBarImageColor3 = Color3.fromRGB(0, 220, 130)
-    Page.CanvasSize = UDim2.new(0, 0, 0, 0)
-    Page.Visible = false
-    Page.Parent = ContentHolder
-
-    local PageLayout = Instance.new("UIListLayout")
-    PageLayout.Padding = UDim.new(0, 6)
-    PageLayout.Parent = Page
-
-    PageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        Page.CanvasSize = UDim2.new(0, 0, 0, PageLayout.AbsoluteContentSize.Y + 10)
+    local layout = Instance.new("UIListLayout", page)
+    layout.Padding = UDim.new(0, 6)
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
     end)
 
-    Pages[name] = Page
-    TabButtons[name] = TabBtn
+    Pages[name] = page
+    TabButtons[name] = btn
 
-    TabBtn.MouseButton1Click:Connect(function()
-        for k, v in pairs(Pages) do
-            v.Visible = (k == name)
+    btn.MouseButton1Click:Connect(function()
+        for k, p in pairs(Pages) do
+            p.Visible = (k == name)
         end
-        for k, btn in pairs(TabButtons) do
+        for k, b in pairs(TabButtons) do
             if k == name then
-                btn.BackgroundColor3 = Color3.fromRGB(0, 220, 130)
-                btn.TextColor3 = Color3.fromRGB(15, 16, 20)
+                b.BackgroundColor3 = Accent
+                b.TextColor3 = BgDark
             else
-                btn.BackgroundColor3 = Color3.fromRGB(28, 31, 38)
-                btn.TextColor3 = Color3.fromRGB(180, 185, 195)
+                b.BackgroundColor3 = RowBg
+                b.TextColor3 = TextDim
             end
         end
     end)
 
-    return Page
+    return page
 end
 
 local function CreateToggle(parent, text, defaultState, callback)
-    local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(1, -6, 0, 34)
-    Frame.BackgroundColor3 = Color3.fromRGB(27, 30, 38)
-    Frame.BorderSizePixel = 0
-    Frame.Parent = parent
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -6, 0, 32)
+    frame.BackgroundColor3 = RowBg
+    frame.BorderSizePixel = 0
+    frame.Parent = parent
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
 
-    local FCorner = Instance.new("UICorner")
-    FCorner.CornerRadius = UDim.new(0, 6)
-    FCorner.Parent = Frame
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -60, 1, 0)
+    lbl.Position = UDim2.new(0, 10, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = text
+    lbl.TextColor3 = TextMain
+    lbl.Font = Enum.Font.GothamMedium
+    lbl.TextSize = 11
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = frame
 
-    local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(1, -65, 1, 0)
-    Label.Position = UDim2.new(0, 10, 0, 0)
-    Label.BackgroundTransparency = 1
-    Label.Text = text
-    Label.TextColor3 = Color3.fromRGB(235, 240, 245)
-    Label.Font = Enum.Font.GothamMedium
-    Label.TextSize = 11
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.Parent = Frame
+    local sw = Instance.new("TextButton")
+    sw.Size = UDim2.new(0, 42, 0, 20)
+    sw.Position = UDim2.new(1, -50, 0.5, -10)
+    sw.BackgroundColor3 = defaultState and Accent or Color3.fromRGB(51, 65, 85)
+    sw.Text = defaultState and "ON" or "OFF"
+    sw.TextColor3 = defaultState and BgDark or TextDim
+    sw.Font = Enum.Font.GothamBold
+    sw.TextSize = 10
+    sw.Parent = frame
+    Instance.new("UICorner", sw).CornerRadius = UDim.new(1, 0)
 
-    local Switch = Instance.new("TextButton")
-    Switch.Size = UDim2.new(0, 44, 0, 20)
-    Switch.Position = UDim2.new(1, -54, 0.5, -10)
-    Switch.BackgroundColor3 = defaultState and Color3.fromRGB(0, 220, 130) or Color3.fromRGB(55, 60, 72)
-    Switch.Text = defaultState and "ON" or "OFF"
-    Switch.TextColor3 = defaultState and Color3.fromRGB(15, 16, 20) or Color3.fromRGB(200, 200, 200)
-    Switch.Font = Enum.Font.GothamBold
-    Switch.TextSize = 10
-    Switch.Parent = Frame
-
-    local SCorner = Instance.new("UICorner")
-    SCorner.CornerRadius = UDim.new(0, 10)
-    SCorner.Parent = Switch
-
-    local state = defaultState
-    Switch.MouseButton1Click:Connect(function()
-        state = not state
-        Switch.BackgroundColor3 = state and Color3.fromRGB(0, 220, 130) or Color3.fromRGB(55, 60, 72)
-        Switch.Text = state and "ON" or "OFF"
-        Switch.TextColor3 = state and Color3.fromRGB(15, 16, 20) or Color3.fromRGB(200, 200, 200)
-        callback(state)
+    local active = defaultState
+    sw.MouseButton1Click:Connect(function()
+        active = not active
+        sw.BackgroundColor3 = active and Accent or Color3.fromRGB(51, 65, 85)
+        sw.Text = active and "ON" or "OFF"
+        sw.TextColor3 = active and BgDark or TextDim
+        callback(active)
     end)
 end
 
 local function CreateButton(parent, text, callback)
-    local Btn = Instance.new("TextButton")
-    Btn.Size = UDim2.new(1, -6, 0, 32)
-    Btn.BackgroundColor3 = Color3.fromRGB(32, 36, 46)
-    Btn.Text = text
-    Btn.TextColor3 = Color3.fromRGB(0, 220, 130)
-    Btn.Font = Enum.Font.GothamSemibold
-    Btn.TextSize = 11
-    Btn.Parent = parent
-
-    local BCorner = Instance.new("UICorner")
-    BCorner.CornerRadius = UDim.new(0, 6)
-    BCorner.Parent = Btn
-
-    Btn.MouseButton1Click:Connect(callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -6, 0, 30)
+    btn.BackgroundColor3 = RowBg
+    btn.Text = text
+    btn.TextColor3 = TextMain
+    btn.Font = Enum.Font.GothamSemibold
+    btn.TextSize = 11
+    btn.Parent = parent
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    btn.MouseButton1Click:Connect(callback)
+    return btn
 end
 
-local function CreateSectionLabel(parent, text)
-    local Lbl = Instance.new("TextLabel")
-    Lbl.Size = UDim2.new(1, -6, 0, 20)
-    Lbl.BackgroundTransparency = 1
-    Lbl.Text = text
-    Lbl.TextColor3 = Color3.fromRGB(255, 205, 60)
-    Lbl.Font = Enum.Font.GothamBold
-    Lbl.TextSize = 11
-    Lbl.TextXAlignment = Enum.TextXAlignment.Left
-    Lbl.Parent = parent
+local function CreateChipRow(parent, options, selectedValue, onSelect)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, -6, 0, 28)
+    row.BackgroundTransparency = 1
+    row.Parent = parent
+
+    local layout = Instance.new("UIListLayout", row)
+    layout.FillDirection = Enum.FillDirection.Horizontal
+    layout.Padding = UDim.new(0, 6)
+
+    local count = #options
+    local widthScale = 1 / count
+
+    for _, opt in ipairs(options) do
+        local chip = Instance.new("TextButton")
+        chip.Size = UDim2.new(widthScale, -4, 1, 0)
+        chip.BackgroundColor3 = (opt == selectedValue) and Accent or RowBg
+        chip.Text = opt
+        chip.TextColor3 = (opt == selectedValue) and BgDark or TextMain
+        chip.Font = Enum.Font.GothamBold
+        chip.TextSize = 11
+        chip.Parent = row
+        Instance.new("UICorner", chip).CornerRadius = UDim.new(0, 6)
+
+        chip.MouseButton1Click:Connect(function()
+            onSelect(opt)
+        end)
+    end
 end
 
-local MainTab = CreateTab("Main Farm")
-local BossRaidTab = CreateTab("Boss & Raid")
-local IslandsTab = CreateTab("Islands")
-local NPCsTab = CreateTab("NPCs & Shops")
-local MobsTab = CreateTab("Mobs")
-local CustomCoordTab = CreateTab("Custom Coords")
+local function CreateSection(parent, text)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -6, 0, 18)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = text
+    lbl.TextColor3 = Accent
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextSize = 11
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = parent
+end
+
+local MainTab = CreateTab("Main")
+local LevelTab = CreateTab("Level Mobs")
+local TeleportTab = CreateTab("Teleport")
+local BossTab = CreateTab("Boss & Raid")
+local SavedTab = CreateTab("Saved")
 local CombatTab = CreateTab("Combat")
-local VisualTab = CreateTab("Visual & Misc")
+local MiscTab = CreateTab("Player & ESP")
 
-Pages["Main Farm"].Visible = true
-TabButtons["Main Farm"].BackgroundColor3 = Color3.fromRGB(0, 220, 130)
-TabButtons["Main Farm"].TextColor3 = Color3.fromRGB(15, 16, 20)
+Pages["Main"].Visible = true
+TabButtons["Main"].BackgroundColor3 = Accent
+TabButtons["Main"].TextColor3 = BgDark
 
 StatusLabel = Instance.new("TextLabel")
 StatusLabel.Size = UDim2.new(1, -6, 0, 26)
-StatusLabel.BackgroundColor3 = Color3.fromRGB(24, 28, 36)
-StatusLabel.Text = "Status: Ready | Sea: Sea 1"
-StatusLabel.TextColor3 = Color3.fromRGB(0, 220, 130)
+StatusLabel.BackgroundColor3 = RowBg
+StatusLabel.Text = "Lv: 1 | H: 8 | Spd: 140"
+StatusLabel.TextColor3 = Accent
 StatusLabel.Font = Enum.Font.GothamBold
 StatusLabel.TextSize = 11
 StatusLabel.Parent = MainTab
+Instance.new("UICorner", StatusLabel).CornerRadius = UDim.new(0, 6)
 
-local StatusCorner = Instance.new("UICorner")
-StatusCorner.CornerRadius = UDim.new(0, 6)
-StatusCorner.Parent = StatusLabel
-
-CreateToggle(MainTab, "Auto Farm Level (Nearest Mob)", false, function(val)
-    Config.AutoFarm = val
+CreateToggle(MainTab, "Auto Farm Level", false, function(v)
+    Config.AutoFarm = v
+    if not v then SetHoverState(false) end
 end)
 
-CreateToggle(MainTab, "Auto Quest (Nearest NPC)", false, function(val)
-    Config.AutoQuest = val
+CreateToggle(MainTab, "Auto Mob By Player Level", true, function(v)
+    Config.AutoLevelMob = v
 end)
 
-CreateToggle(MainTab, "Auto Collect Chest", false, function(val)
-    Config.AutoChest = val
+CreateToggle(MainTab, "Auto Quest", false, function(v)
+    Config.AutoQuest = v
 end)
 
-CreateSectionLabel(MainTab, "Switch Sea Coordinates")
+CreateToggle(MainTab, "Auto Collect Chest", false, function(v)
+    Config.AutoChest = v
+end)
 
-local function RebuildSavedCoordList()
-    for _, child in ipairs(CustomCoordTab:GetChildren()) do
+for _, entry in ipairs(LevelData) do
+    CreateButton(LevelTab, string.format("Lv %d-%d | %s (%s)", entry.MinLv, entry.MaxLv, entry.Mob, entry.Sea), function()
+        Config.SelectedLevelMob = entry
+        TeleportToPos(GetLiveTargetPos(entry.Mob, entry.Pos))
+        SetStatus("Target: " .. entry.Mob)
+    end)
+end
+
+local function RebuildSavedList()
+    for _, child in ipairs(SavedTab:GetChildren()) do
         if not child:IsA("UIListLayout") then
             child:Destroy()
         end
     end
 
-    CreateSectionLabel(CustomCoordTab, "Save & Teleport Current Position")
-
-    CreateButton(CustomCoordTab, "Save Current Position", function()
+    CreateButton(SavedTab, "Save Current Position", function()
         local root = GetRoot()
         if root then
             local p = root.Position
-            local index = #SavedCoords + 1
-            table.insert(SavedCoords, {
-                name = "Spot " .. index,
-                x = p.X,
-                y = p.Y,
-                z = p.Z
-            })
+            local idx = #SavedCoords + 1
+            table.insert(SavedCoords, {name = "Spot " .. idx, x = p.X, y = p.Y, z = p.Z})
             SaveCoordsToFile()
-            SetStatus(string.format("Saved Spot %d (%.0f, %.0f, %.0f)", index, p.X, p.Y, p.Z))
-            RebuildSavedCoordList()
+            RebuildSavedList()
         end
     end)
 
-    CreateButton(CustomCoordTab, "Clear All Saved Coords", function()
+    CreateButton(SavedTab, "Clear All Saved", function()
         table.clear(SavedCoords)
         SaveCoordsToFile()
-        SetStatus("Cleared all saved coords")
-        RebuildSavedCoordList()
+        RebuildSavedList()
     end)
-
-    CreateSectionLabel(CustomCoordTab, "Saved Positions (" .. tostring(#SavedCoords) .. ")")
 
     for i, item in ipairs(SavedCoords) do
         local pos = Vector3.new(item.x, item.y, item.z)
-        CreateButton(CustomCoordTab, string.format("TP %s (%.0f, %.0f, %.0f)", item.name or ("Spot " .. i), item.x, item.y, item.z), function()
+        CreateButton(SavedTab, string.format("TP %s (%.0f, %.0f, %.0f)", item.name or ("Spot " .. i), item.x, item.y, item.z), function()
             TeleportToPos(pos)
-            SetStatus("TP to " .. (item.name or ("Spot " .. i)))
         end)
     end
 end
 
-local function RebuildAllCoordLists()
-    for _, page in ipairs({BossRaidTab, IslandsTab, NPCsTab, MobsTab}) do
-        for _, child in ipairs(page:GetChildren()) do
-            if not child:IsA("UIListLayout") then
-                child:Destroy()
-            end
+local RebuildBossTab
+local tpHeaderHolder = Instance.new("Frame")
+tpHeaderHolder.Name = "TpHeaderHolder"
+tpHeaderHolder.Size = UDim2.new(1, -6, 0, 102)
+tpHeaderHolder.BackgroundTransparency = 1
+tpHeaderHolder.Parent = TeleportTab
+
+local tpHeaderLayout = Instance.new("UIListLayout", tpHeaderHolder)
+tpHeaderLayout.Padding = UDim.new(0, 6)
+
+local searchRow = Instance.new("Frame")
+searchRow.Size = UDim2.new(1, -6, 0, 30)
+searchRow.BackgroundColor3 = RowBg
+searchRow.BorderSizePixel = 0
+searchRow.Parent = tpHeaderHolder
+Instance.new("UICorner", searchRow).CornerRadius = UDim.new(0, 6)
+
+local searchBox = Instance.new("TextBox")
+searchBox.Size = UDim2.new(1, -38, 1, 0)
+searchBox.Position = UDim2.new(0, 10, 0, 0)
+searchBox.BackgroundTransparency = 1
+searchBox.PlaceholderText = "Search All Seas (Island / NPC / Shop)..."
+searchBox.PlaceholderColor3 = TextDim
+searchBox.Text = Config.TeleportSearch
+searchBox.TextColor3 = TextMain
+searchBox.Font = Enum.Font.GothamMedium
+searchBox.TextSize = 11
+searchBox.ClearTextOnFocus = false
+searchBox.TextXAlignment = Enum.TextXAlignment.Left
+searchBox.Parent = searchRow
+
+local clearSearchBtn = Instance.new("TextButton")
+clearSearchBtn.Size = UDim2.new(0, 24, 0, 22)
+clearSearchBtn.Position = UDim2.new(1, -28, 0.5, -11)
+clearSearchBtn.BackgroundColor3 = PanelBg
+clearSearchBtn.Text = "X"
+clearSearchBtn.TextColor3 = TextDim
+clearSearchBtn.Font = Enum.Font.GothamBold
+clearSearchBtn.TextSize = 10
+clearSearchBtn.Parent = searchRow
+Instance.new("UICorner", clearSearchBtn).CornerRadius = UDim.new(0, 5)
+
+local tpChipsHolder = Instance.new("Frame")
+tpChipsHolder.Size = UDim2.new(1, 0, 0, 62)
+tpChipsHolder.BackgroundTransparency = 1
+tpChipsHolder.Parent = tpHeaderHolder
+
+local tpChipsLayout = Instance.new("UIListLayout", tpChipsHolder)
+tpChipsLayout.Padding = UDim.new(0, 6)
+
+local tpResultsHolder = Instance.new("Frame")
+tpResultsHolder.Name = "TpResultsHolder"
+tpResultsHolder.Size = UDim2.new(1, 0, 0, 0)
+tpResultsHolder.AutomaticSize = Enum.AutomaticSize.Y
+tpResultsHolder.BackgroundTransparency = 1
+tpResultsHolder.Parent = TeleportTab
+
+local tpResultsLayout = Instance.new("UIListLayout", tpResultsHolder)
+tpResultsLayout.Padding = UDim.new(0, 6)
+
+local function RefreshTeleportResults()
+    for _, child in ipairs(tpResultsHolder:GetChildren()) do
+        if not child:IsA("UIListLayout") then
+            child:Destroy()
         end
     end
+
+    local keyword = string.lower(Config.TeleportSearch or "")
+    if keyword ~= "" then
+        local matches = {}
+        for _, seaName in ipairs({"Sea 1", "Sea 2", "Sea 3"}) do
+            local seaInfo = WorldData[seaName]
+            if seaInfo then
+                for _, grpName in ipairs({"Islands", "NPCs", "Shops"}) do
+                    local grpList = seaInfo[grpName]
+                    if grpList then
+                        for _, item in ipairs(grpList) do
+                            local name = item[1]
+                            local pos = item[2]
+                            if string.find(string.lower(name), keyword, 1, true)
+                                or string.find(string.lower(seaName), keyword, 1, true)
+                                or string.find(string.lower(grpName), keyword, 1, true) then
+                                table.insert(matches, {
+                                    sea = seaName,
+                                    group = grpName,
+                                    name = name,
+                                    pos = pos
+                                })
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        CreateSection(tpResultsHolder, string.format("All Seas Search (%d)", #matches))
+        for _, entry in ipairs(matches) do
+            CreateButton(tpResultsHolder, string.format("[%s] %s (%s)", entry.sea, entry.name, entry.group), function()
+                Config.SelectedSea = entry.sea
+                local dest = (entry.group == "Islands") and entry.pos or GetLiveTargetPos(entry.name, entry.pos)
+                TeleportToPos(dest)
+                SetStatus(string.format("TP [%s]: %s", entry.sea, entry.name))
+            end)
+        end
+        return
+    end
+
+    local seaInfo = WorldData[Config.SelectedSea]
+    local list = seaInfo and seaInfo[Config.SelectedTpGroup]
+    if not list then return end
+
+    CreateSection(tpResultsHolder, string.format("%s - %s (%d)", Config.SelectedSea, Config.SelectedTpGroup, #list))
+
+    for _, item in ipairs(list) do
+        local name = item[1]
+        local pos = item[2]
+        CreateButton(tpResultsHolder, name, function()
+            local dest = (Config.SelectedTpGroup == "Islands") and pos or GetLiveTargetPos(name, pos)
+            TeleportToPos(dest)
+            SetStatus("TP: " .. name)
+        end)
+    end
+end
+
+local function RebuildTeleportTab()
+    for _, child in ipairs(tpChipsHolder:GetChildren()) do
+        if not child:IsA("UIListLayout") then
+            child:Destroy()
+        end
+    end
+
+    CreateChipRow(tpChipsHolder, {"Sea 1", "Sea 2", "Sea 3"}, Config.SelectedSea, function(sea)
+        Config.SelectedSea = sea
+        RebuildTeleportTab()
+        if RebuildBossTab then RebuildBossTab() end
+    end)
+
+    CreateChipRow(tpChipsHolder, {"Islands", "NPCs", "Shops"}, Config.SelectedTpGroup, function(grp)
+        Config.SelectedTpGroup = grp
+        RebuildTeleportTab()
+    end)
+
+    RefreshTeleportResults()
+end
+
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    Config.TeleportSearch = searchBox.Text
+    RefreshTeleportResults()
+end)
+
+clearSearchBtn.MouseButton1Click:Connect(function()
+    searchBox.Text = ""
+    Config.TeleportSearch = ""
+    RefreshTeleportResults()
+end)
+
+RebuildBossTab = function()
+    for _, child in ipairs(BossTab:GetChildren()) do
+        if not child:IsA("UIListLayout") then
+            child:Destroy()
+        end
+    end
+
+    CreateChipRow(BossTab, {"Sea 1", "Sea 2", "Sea 3"}, Config.SelectedSea, function(sea)
+        Config.SelectedSea = sea
+        RebuildBossTab()
+        RebuildTeleportTab()
+    end)
 
     local seaInfo = WorldData[Config.SelectedSea]
     if not seaInfo then return end
 
-    CreateToggle(BossRaidTab, "Auto Farm Selected Boss", false, function(val)
-        Config.AutoBoss = val
+    CreateToggle(BossTab, "Auto Farm Selected Boss", false, function(v)
+        Config.AutoBoss = v
+        if not v then SetHoverState(false) end
     end)
 
-    CreateSectionLabel(BossRaidTab, Config.SelectedSea .. " - Bosses")
-    for name, pos in pairs(seaInfo.Bosses) do
-        CreateButton(BossRaidTab, string.format("Boss: %s (%.0f, %.0f, %.0f)", name, pos.X, pos.Y, pos.Z), function()
+    CreateSection(BossTab, Config.SelectedSea .. " Bosses")
+    for _, item in ipairs(seaInfo.Bosses) do
+        local name, pos = item[1], item[2]
+        CreateButton(BossTab, "Boss: " .. name, function()
             Config.SelectedBoss = name
             TeleportToPos(GetLiveTargetPos(name, pos))
-            SetStatus("Status: Target Boss " .. name)
+            SetStatus("Boss: " .. name)
         end)
     end
 
-    CreateSectionLabel(BossRaidTab, Config.SelectedSea .. " - Raids & Special Spots")
-    for name, pos in pairs(seaInfo.RaidsAndEvents) do
-        CreateButton(BossRaidTab, string.format("%s (%.0f, %.0f, %.0f)", name, pos.X, pos.Y, pos.Z), function()
+    CreateSection(BossTab, Config.SelectedSea .. " Raids & Spots")
+    for _, item in ipairs(seaInfo.RaidsAndEvents) do
+        local name, pos = item[1], item[2]
+        CreateButton(BossTab, name, function()
             TeleportToPos(pos)
-            SetStatus("Status: TP " .. name)
-        end)
-    end
-
-    CreateSectionLabel(IslandsTab, Config.SelectedSea .. " - Islands")
-    for name, pos in pairs(seaInfo.Islands) do
-        CreateButton(IslandsTab, string.format("%s (%.0f, %.0f, %.0f)", name, pos.X, pos.Y, pos.Z), function()
-            TeleportToPos(pos)
-            SetStatus("Status: TP " .. name)
-        end)
-    end
-
-    CreateSectionLabel(NPCsTab, Config.SelectedSea .. " - NPCs")
-    for name, pos in pairs(seaInfo.NPCs) do
-        CreateButton(NPCsTab, string.format("%s (%.0f, %.0f, %.0f)", name, pos.X, pos.Y, pos.Z), function()
-            TeleportToPos(GetLiveTargetPos(name, pos))
-            SetStatus("Status: TP " .. name)
-        end)
-    end
-
-    CreateSectionLabel(NPCsTab, Config.SelectedSea .. " - Shops & Fruit")
-    for name, pos in pairs(seaInfo.ShopsAndFruit) do
-        CreateButton(NPCsTab, string.format("%s (%.0f, %.0f, %.0f)", name, pos.X, pos.Y, pos.Z), function()
-            TeleportToPos(GetLiveTargetPos(name, pos))
-            SetStatus("Status: TP " .. name)
-        end)
-    end
-
-    CreateSectionLabel(MobsTab, Config.SelectedSea .. " - Mobs")
-    for name, pos in pairs(seaInfo.Mobs) do
-        CreateButton(MobsTab, string.format("%s (%.0f, %.0f, %.0f)", name, pos.X, pos.Y, pos.Z), function()
-            TeleportToPos(GetLiveTargetPos(name, pos))
-            SetStatus("Status: TP " .. name)
+            SetStatus("TP: " .. name)
         end)
     end
 end
 
-for _, seaName in ipairs({"Sea 1", "Sea 2", "Sea 3"}) do
-    CreateButton(MainTab, "Load " .. seaName .. " All Coords", function()
-        Config.SelectedSea = seaName
-        SetStatus("Status: Loaded " .. seaName .. " Coords")
-        RebuildAllCoordLists()
+RebuildTeleportTab()
+RebuildBossTab()
+RebuildSavedList()
+
+CreateToggle(CombatTab, "Fast Attack", false, function(v) Config.FastAttack = v end)
+CreateToggle(CombatTab, "Bring Mob", false, function(v) Config.BringMob = v end)
+CreateToggle(CombatTab, "Auto Equip Tool", true, function(v) Config.AutoEquipMelee = v end)
+
+CreateSection(CombatTab, "Hover Height Above Mob")
+for _, h in ipairs({6, 8, 10, 14}) do
+    CreateButton(CombatTab, string.format("Height: %d Studs", h), function()
+        Config.FarmHeight = h
+        SetStatus(string.format("Height: %d | Speed: %d", Config.FarmHeight, Config.FlySpeed))
     end)
 end
 
-RebuildAllCoordLists()
-RebuildSavedCoordList()
-
-CreateToggle(CombatTab, "Smooth Fly While Farming", true, function(val)
-    Config.SmoothFly = val
-end)
-
-CreateToggle(CombatTab, "Walk On Water (Sea Floor)", true, function(val)
-    Config.WalkOnWater = val
-    waterPart.CanCollide = val
-end)
-
-CreateToggle(CombatTab, "Fast Attack (No Cooldown)", false, function(val)
-    Config.FastAttack = val
-end)
-
-CreateToggle(CombatTab, "Bring Mob (Pull Nearby Mobs)", false, function(val)
-    Config.BringMob = val
-end)
-
-CreateToggle(CombatTab, "Auto Equip Melee Weapon", true, function(val)
-    Config.AutoEquipMelee = val
-end)
-
-CreateButton(CombatTab, "Farm Height: 7 Studs", function()
-    Config.FarmHeight = 7
-end)
-
-CreateButton(CombatTab, "Farm Height: 12 Studs", function()
-    Config.FarmHeight = 12
-end)
-
-local function ClearPlayerESP()
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr.Character and plr.Character:FindFirstChild("RK_ESP") then
-            plr.Character.RK_ESP:Destroy()
-        end
-    end
+CreateSection(CombatTab, "Fly Speed")
+for _, spd in ipairs({100, 140, 200, 260}) do
+    CreateButton(CombatTab, string.format("Fly Speed: %d", spd), function()
+        Config.FlySpeed = spd
+        SetStatus(string.format("Height: %d | Speed: %d", Config.FarmHeight, Config.FlySpeed))
+    end)
 end
 
-local function ClearChestESP()
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj.Name == "RK_ChestESP" then
-            obj:Destroy()
-        end
-    end
-end
-
-CreateToggle(VisualTab, "ESP Players", false, function(val)
-    Config.ESPPlayer = val
-    if not val then ClearPlayerESP() end
-end)
-
-CreateToggle(VisualTab, "ESP Chests", false, function(val)
-    Config.ESPChest = val
-    if not val then ClearChestESP() end
-end)
-
-CreateToggle(VisualTab, "NoClip (Walk Through Walls)", false, function(val)
-    Config.NoClip = val
-end)
-
-CreateToggle(VisualTab, "Anti-AFK Protection", true, function(val)
-    Config.AntiAFK = val
-end)
-
-CreateButton(VisualTab, "WalkSpeed 65", function()
-    Config.WalkSpeed = 65
+CreateToggle(MiscTab, "Walk On Water", true, function(v) Config.WalkOnWater = v end)
+CreateToggle(MiscTab, "NoClip", false, function(v) Config.NoClip = v end)
+CreateToggle(MiscTab, "Anti-AFK", true, function(v) Config.AntiAFK = v end)
+CreateToggle(MiscTab, "ESP Players", false, function(v) Config.ESPPlayer = v end)
+CreateToggle(MiscTab, "ESP Chests", false, function(v) Config.ESPChest = v end)
+CreateButton(MiscTab, "Speed 65", function()
     local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if hum then hum.WalkSpeed = Config.WalkSpeed end
+    if hum then hum.WalkSpeed = 65 end
+end)
+CreateButton(MiscTab, "Speed 16", function()
+    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if hum then hum.WalkSpeed = 16 end
 end)
 
-CreateButton(VisualTab, "WalkSpeed 16 (Default)", function()
-    Config.WalkSpeed = 16
-    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if hum then hum.WalkSpeed = Config.WalkSpeed end
-end)
-
-CreateButton(VisualTab, "JumpPower 120", function()
-    Config.JumpPower = 120
-    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if hum then
-        hum.UseJumpPower = true
-        hum.JumpPower = Config.JumpPower
-    end
-end)
+local waterPart = Instance.new("Part")
+waterPart.Name = "RK_WaterFloor"
+waterPart.Anchored = true
+waterPart.CanCollide = true
+waterPart.Transparency = 1
+waterPart.Size = Vector3.new(30, 1, 30)
+waterPart.Parent = workspace
 
 local function EquipWeapon()
     if not Config.AutoEquipMelee then return end
@@ -942,78 +1053,65 @@ local function EquipWeapon()
     end
 end
 
-local function GetNearestEnemy()
+local function FindMobByNameOrNearest(preferName)
     local root = GetRoot()
-    local enemiesFolder = workspace:FindFirstChild("Enemies")
-    if not root or not enemiesFolder then return nil end
+    local enemies = workspace:FindFirstChild("Enemies")
+    if not root or not enemies then return nil end
 
+    local bestByName, bestDistByName = nil, math.huge
     local nearest, minDist = nil, math.huge
-    for _, mob in ipairs(enemiesFolder:GetChildren()) do
+    local lowerPref = preferName and string.lower(preferName) or nil
+
+    for _, mob in ipairs(enemies:GetChildren()) do
         local hum = mob:FindFirstChildOfClass("Humanoid")
-        local mobRoot = mob:FindFirstChild("HumanoidRootPart")
-        if hum and mobRoot and hum.Health > 0 then
-            local dist = (mobRoot.Position - root.Position).Magnitude
-            if dist < minDist then
-                minDist = dist
+        local mRoot = mob:FindFirstChild("HumanoidRootPart")
+        if hum and mRoot and hum.Health > 0 then
+            local d = (mRoot.Position - root.Position).Magnitude
+            if d < minDist then
+                minDist = d
                 nearest = mob
             end
-        end
-    end
-    return nearest
-end
-
-local function FindSpecificBoss(bossName)
-    if not bossName then return nil end
-    local enemiesFolder = workspace:FindFirstChild("Enemies")
-    if not enemiesFolder then return nil end
-    local lowerBoss = string.lower(bossName)
-    for _, mob in ipairs(enemiesFolder:GetChildren()) do
-        if string.find(string.lower(mob.Name), lowerBoss, 1, true) then
-            local hum = mob:FindFirstChildOfClass("Humanoid")
-            local mobRoot = mob:FindFirstChild("HumanoidRootPart")
-            if hum and mobRoot and hum.Health > 0 then
-                return mob
+            if lowerPref and string.find(string.lower(mob.Name), lowerPref, 1, true) and d < bestDistByName then
+                bestDistByName = d
+                bestByName = mob
             end
         end
     end
-    return nil
+
+    return bestByName or nearest
 end
 
 local function BringNearbyMobs(centerPos, radius)
-    local enemiesFolder = workspace:FindFirstChild("Enemies")
-    if not enemiesFolder then return end
-    local pullPos = CFrame.new(centerPos + Vector3.new(0, 0, -4))
-    for _, mob in ipairs(enemiesFolder:GetChildren()) do
+    local enemies = workspace:FindFirstChild("Enemies")
+    if not enemies then return end
+    local pullCF = CFrame.new(centerPos + Vector3.new(0, 0, -4))
+    for _, mob in ipairs(enemies:GetChildren()) do
         local hum = mob:FindFirstChildOfClass("Humanoid")
-        local mobRoot = mob:FindFirstChild("HumanoidRootPart")
-        if hum and mobRoot and hum.Health > 0 then
-            local d = (mobRoot.Position - centerPos).Magnitude
+        local mRoot = mob:FindFirstChild("HumanoidRootPart")
+        if hum and mRoot and hum.Health > 0 then
+            local d = (mRoot.Position - centerPos).Magnitude
             if d > 5 and d <= radius then
-                mobRoot.CFrame = pullPos
-                mobRoot.CanCollide = false
+                mRoot.CFrame = pullCF
+                mRoot.CanCollide = false
             end
         end
     end
 end
 
-local lastQuestTime = 0
+local lastQuest = 0
 local function TryAutoQuest()
-    if tick() - lastQuestTime < 2.5 then return end
-    lastQuestTime = tick()
-
-    local npcsFolder = workspace:FindFirstChild("NPCs")
+    if tick() - lastQuest < 2.5 then return end
+    lastQuest = tick()
+    local npcs = workspace:FindFirstChild("NPCs")
     local root = GetRoot()
-    if not npcsFolder or not root then return end
-
-    for _, npc in ipairs(npcsFolder:GetChildren()) do
+    if not npcs or not root then return end
+    for _, npc in ipairs(npcs:GetChildren()) do
         if string.find(string.lower(npc.Name), "quest", 1, true) then
             local hrp = npc:FindFirstChild("HumanoidRootPart") or npc:FindFirstChildWhichIsA("BasePart")
             if hrp and (hrp.Position - root.Position).Magnitude <= 120 then
                 for _, rem in ipairs(ReplicatedStorage:GetDescendants()) do
                     if rem:IsA("RemoteEvent") and string.find(string.lower(rem.Name), "quest", 1, true) then
-                        pcall(function()
-                            rem:FireServer("StartQuest", npc.Name, 1)
-                        end)
+                        pcall(function() rem:FireServer("StartQuest", npc.Name, 1) end)
                         break
                     end
                 end
@@ -1025,7 +1123,7 @@ end
 
 local cachedChests = {}
 local lastChestScan = 0
-local function RefreshChestCache()
+local function RefreshChests()
     if tick() - lastChestScan < 4 and #cachedChests > 0 then return end
     lastChestScan = tick()
     table.clear(cachedChests)
@@ -1036,7 +1134,7 @@ local function RefreshChestCache()
     end
 end
 
-local function TriggerAttack()
+local function AttackOnce()
     VirtualUser:CaptureController()
     VirtualUser:Button1Down(Vector2.new(1280, 672))
 end
@@ -1067,53 +1165,52 @@ RunService.Stepped:Connect(function()
 end)
 
 task.spawn(function()
-    while task.wait(0.12) do
+    while task.wait(0.06) do
         if Config.AutoFarm or Config.AutoBoss then
             pcall(function()
                 local root = GetRoot()
                 if not root then return end
 
                 if Config.AutoBoss and Config.SelectedBoss then
-                    local seaInfo = WorldData[Config.SelectedSea]
-                    local fallback = seaInfo and seaInfo.Bosses and seaInfo.Bosses[Config.SelectedBoss]
-                    local bossMob = FindSpecificBoss(Config.SelectedBoss)
+                    local bossMob = FindMobByNameOrNearest(Config.SelectedBoss)
                     EquipWeapon()
                     if bossMob and bossMob:FindFirstChild("HumanoidRootPart") then
                         local bRoot = bossMob.HumanoidRootPart
-                        local goalCF = bRoot.CFrame * CFrame.new(0, Config.FarmHeight, 0) * CFrame.Angles(math.rad(-90), 0, 0)
-                        SmoothMoveTo(goalCF, Config.FlySpeed)
-                        TriggerAttack()
-                        SetStatus("Status: Bossing " .. Config.SelectedBoss)
-                        return
-                    elseif fallback then
-                        SmoothMoveTo(CFrame.new(fallback + Vector3.new(0, 6, 0)), Config.FlySpeed)
-                        SetStatus("Status: Waiting Boss " .. Config.SelectedBoss)
+                        local aboveCF = CFrame.new(bRoot.Position + Vector3.new(0, Config.FarmHeight, 0), bRoot.Position) * CFrame.Angles(math.rad(-90), 0, 0)
+                        FlyStepTo(aboveCF)
+                        AttackOnce()
+                        SetStatus("Boss: " .. Config.SelectedBoss)
                         return
                     end
                 end
 
                 if Config.AutoFarm then
-                    local target = GetNearestEnemy()
-                    if target then
-                        if Config.AutoQuest then
-                            TryAutoQuest()
-                        end
+                    local lvEntry = Config.SelectedLevelMob or (Config.AutoLevelMob and GetLevelEntryByPlayerLevel()) or nil
+                    local desiredName = lvEntry and lvEntry.Mob or nil
+                    local target = FindMobByNameOrNearest(desiredName)
+
+                    if target and target:FindFirstChild("HumanoidRootPart") then
+                        if Config.AutoQuest then TryAutoQuest() end
                         EquipWeapon()
-                        local targetRoot = target:FindFirstChild("HumanoidRootPart")
-                        if targetRoot then
-                            local goalCF = targetRoot.CFrame * CFrame.new(0, Config.FarmHeight, 0) * CFrame.Angles(math.rad(-90), 0, 0)
-                            SmoothMoveTo(goalCF, Config.FlySpeed)
-                            if Config.BringMob then
-                                BringNearbyMobs(targetRoot.Position, 45)
-                            end
-                            TriggerAttack()
-                            SetStatus("Status: Farming " .. target.Name)
+                        local tRoot = target.HumanoidRootPart
+                        local aboveCF = CFrame.new(tRoot.Position + Vector3.new(0, Config.FarmHeight, 0), tRoot.Position) * CFrame.Angles(math.rad(-90), 0, 0)
+                        FlyStepTo(aboveCF)
+                        if Config.BringMob then
+                            BringNearbyMobs(tRoot.Position, 45)
                         end
+                        AttackOnce()
+                        SetStatus(string.format("Lv %d | %s (H:%d)", GetPlayerLevel(), target.Name, Config.FarmHeight))
+                    elseif lvEntry then
+                        FlyStepTo(CFrame.new(lvEntry.Pos + Vector3.new(0, Config.FarmHeight + 2, 0)))
+                        SetStatus(string.format("Lv %d | Move: %s", GetPlayerLevel(), lvEntry.Mob))
                     else
-                        SetStatus("Status: Searching Mob (" .. Config.SelectedSea .. ")")
+                        SetHoverState(false)
+                        SetStatus("Lv " .. tostring(GetPlayerLevel()) .. " | Searching")
                     end
                 end
             end)
+        else
+            SetHoverState(false)
         end
     end
 end)
@@ -1124,14 +1221,13 @@ task.spawn(function()
             pcall(function()
                 local root = GetRoot()
                 if not root then return end
-                RefreshChestCache()
+                RefreshChests()
                 for i = #cachedChests, 1, -1 do
                     if not Config.AutoChest then break end
-                    local chest = cachedChests[i]
-                    if chest and chest.Parent and chest:FindFirstChildWhichIsA("TouchTransmitter") then
-                        SmoothMoveTo(chest.CFrame + Vector3.new(0, 2, 0), Config.FlySpeed)
-                        SetStatus("Status: Collecting Chest")
-                        task.wait(0.2)
+                    local c = cachedChests[i]
+                    if c and c.Parent and c:FindFirstChildWhichIsA("TouchTransmitter") then
+                        FlyStepTo(c.CFrame + Vector3.new(0, 2, 0))
+                        task.wait(0.18)
                     else
                         table.remove(cachedChests, i)
                     end
@@ -1144,7 +1240,7 @@ end)
 task.spawn(function()
     while task.wait(0.08) do
         if Config.FastAttack then
-            pcall(TriggerAttack)
+            pcall(AttackOnce)
         end
     end
 end)
@@ -1156,22 +1252,22 @@ task.spawn(function()
                 if plr ~= LocalPlayer and plr.Character and not plr.Character:FindFirstChild("RK_ESP") then
                     local hl = Instance.new("Highlight")
                     hl.Name = "RK_ESP"
-                    hl.FillColor = Color3.fromRGB(0, 220, 130)
-                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    hl.FillColor = Accent
+                    hl.OutlineColor = Color3.new(1, 1, 1)
                     hl.FillTransparency = 0.5
                     hl.Parent = plr.Character
                 end
             end
         end
         if Config.ESPChest then
-            RefreshChestCache()
-            for _, chest in ipairs(cachedChests) do
-                if chest and chest.Parent and not chest:FindFirstChild("RK_ChestESP") then
+            RefreshChests()
+            for _, c in ipairs(cachedChests) do
+                if c and c.Parent and not c:FindFirstChild("RK_ChestESP") then
                     local hl = Instance.new("Highlight")
                     hl.Name = "RK_ChestESP"
-                    hl.FillColor = Color3.fromRGB(255, 215, 0)
+                    hl.FillColor = Color3.fromRGB(250, 204, 21)
                     hl.FillTransparency = 0.4
-                    hl.Parent = chest
+                    hl.Parent = c
                 end
             end
         end
