@@ -3,7 +3,6 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local VirtualUser = game:GetService("VirtualUser")
 
@@ -11,11 +10,13 @@ local LocalPlayer = Players.LocalPlayer
 
 local Config = {
     WeaponType = "Melee",
+    SkillWeaponType = "Melee",
     FarmTarget = "Auto Level",
     AutoFarm = false,
+    AutoFarmLevel = false,
     AutoFarmBones = false,
     AutoFarmCakePrince = false,
-    AutoFarmLevel = false,
+    AutoFarmNearest = false,
     AutoQuest = true,
     IgnoreCakePrince = false,
     AutoRandomBones = false,
@@ -36,10 +37,13 @@ local Config = {
     AutoAimPVP = false,
     BringMobPVP = false,
     AutoKenPVP = true,
+    UseSkillsPVP = true,
+    SelectedPVPTarget = "Nearest",
     EspPlayers = false,
     EspChests = false,
     EspFruits = false,
     EspMobs = false,
+    EspElites = false,
     AutoRefreshEsp = true,
     AntiAFK = true,
     FarmSpeed = 260,
@@ -58,8 +62,10 @@ local State = {
     LastBring = 0,
     LastEspRefresh = 0,
     EliteCount = 0,
+    CakeMobCount = 0,
     ActiveElites = {},
     EliteProcessLabel = nil,
+    CakeProcessLabel = nil,
     LevelInfoLabel = nil,
     EspFolder = nil
 }
@@ -68,6 +74,13 @@ local EliteNames = {
     "Diablo",
     "Deandre",
     "Urban"
+}
+
+local WeaponTypes = {
+    "Melee",
+    "Sword",
+    "Blox Fruit",
+    "Gun"
 }
 
 local LevelTable = {
@@ -255,6 +268,9 @@ local function refreshEliteProgressLabel()
     if State.EliteProcessLabel and State.EliteProcessLabel.Parent then
         State.EliteProcessLabel.Text = "  Elites Process: " .. tostring(State.EliteCount)
     end
+    if State.CakeProcessLabel and State.CakeProcessLabel.Parent then
+        State.CakeProcessLabel.Text = "  Cake Prince Progress: " .. tostring(State.CakeMobCount) .. " / 500"
+    end
 end
 
 local function isEliteBossName(name)
@@ -291,6 +307,15 @@ local function trackEliteKills()
             setStatus("Elite defeated! Count: " .. tostring(State.EliteCount))
         end
     end
+end
+
+local function cycleItem(list, current)
+    for i, val in ipairs(list) do
+        if val == current then
+            return list[(i % #list) + 1]
+        end
+    end
+    return list[1]
 end
 
 local function equipWeapon(wType)
@@ -368,6 +393,10 @@ end
 local function castConfiguredSkills()
     if tick() - State.LastSkillCast < Config.SkillCooldown then return end
     State.LastSkillCast = tick()
+
+    if Config.SkillWeaponType then
+        equipWeapon(Config.SkillWeaponType)
+    end
 
     if Config.AutoSkillZ then sendKey(Enum.KeyCode.Z) end
     if Config.AutoSkillX then sendKey(Enum.KeyCode.X) end
@@ -537,6 +566,7 @@ end
 
 local function ensureQuest(targetMode)
     if not Config.AutoQuest then return end
+    if hasActiveQuestUI() then return end
     local remotes = ReplicatedStorage:FindFirstChild("Remotes")
     local commF = remotes and remotes:FindFirstChild("CommF_")
     if not commF then return end
@@ -564,30 +594,6 @@ local function ensureEliteQuest()
     end
 end
 
-local function serverHopPublic()
-    setStatus("Scanning public servers...")
-    local ok, body = pcall(function()
-        local url = string.format(
-            "https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=25",
-            game.PlaceId
-        )
-        return HttpService:JSONDecode(game:HttpGet(url))
-    end)
-
-    if ok and body and body.data then
-        for _, srv in ipairs(body.data) do
-            if srv.id ~= game.JobId and srv.playing < srv.maxPlayers then
-                setStatus("Hopping server...")
-                pcall(function()
-                    TeleportService:TeleportToPlaceInstance(game.PlaceId, srv.id, LocalPlayer)
-                end)
-                return
-            end
-        end
-    end
-    setStatus("No available server found")
-end
-
 local function clearEsp()
     if State.EspFolder then
         State.EspFolder:Destroy()
@@ -597,7 +603,7 @@ end
 
 local function updateEsp()
     clearEsp()
-    if not (Config.EspPlayers or Config.EspChests or Config.EspFruits or Config.EspMobs) then
+    if not (Config.EspPlayers or Config.EspChests or Config.EspFruits or Config.EspMobs or Config.EspElites) then
         return
     end
 
@@ -657,22 +663,25 @@ local function updateEsp()
         end
     end
 
-    if Config.EspMobs then
+    if Config.EspMobs or Config.EspElites then
         local enemiesFolder = workspace:FindFirstChild("Enemies")
         if enemiesFolder then
             for _, mob in ipairs(enemiesFolder:GetChildren()) do
                 local hum = mob:FindFirstChildOfClass("Humanoid")
                 local mRoot = mob:FindFirstChild("HumanoidRootPart")
                 if hum and hum.Health > 0 and mRoot then
-                    local box = Instance.new("BoxHandleAdornment")
-                    box.Name = "MobEsp_" .. mob.Name
-                    box.Adornee = mRoot
-                    box.Size = Vector3.new(4, 5, 3)
-                    box.Color3 = Color3.fromRGB(145, 110, 255)
-                    box.Transparency = 0.5
-                    box.AlwaysOnTop = true
-                    box.ZIndex = 3
-                    box.Parent = folder
+                    local elite = isEliteBossName(mob.Name)
+                    if (elite and Config.EspElites) or (not elite and Config.EspMobs) then
+                        local box = Instance.new("BoxHandleAdornment")
+                        box.Name = "MobEsp_" .. mob.Name
+                        box.Adornee = mRoot
+                        box.Size = Vector3.new(4, 5, 3)
+                        box.Color3 = elite and Color3.fromRGB(255, 140, 40) or Color3.fromRGB(145, 110, 255)
+                        box.Transparency = 0.45
+                        box.AlwaysOnTop = true
+                        box.ZIndex = 4
+                        box.Parent = folder
+                    end
                 end
             end
         end
@@ -787,6 +796,7 @@ local function buildUI()
 
     local function clearContent()
         State.EliteProcessLabel = nil
+        State.CakeProcessLabel = nil
         State.LevelInfoLabel = nil
         for _, child in ipairs(content:GetChildren()) do
             if not child:IsA("UIListLayout") then
@@ -875,9 +885,6 @@ local function buildUI()
                 end
                 setStatus("JobId copied")
             end)
-            addActionButton("Server Hop (Next Public Server)", function()
-                serverHopPublic()
-            end)
             addActionButton("Rejoin Current Server", function()
                 setStatus("Rejoining server...")
                 pcall(function()
@@ -914,25 +921,53 @@ local function buildUI()
                 end
                 setStatus("Requested Flash Step")
             end)
+            addActionButton("Buy Random Bones (Spin)", function()
+                State.LastBoneSpin = 0
+                randomBones()
+                setStatus("Requested Random Bones")
+            end)
+            addActionButton("Buy Katana", function()
+                local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+                if commF then
+                    pcall(function() commF:InvokeServer("BuyItem", "Katana") end)
+                end
+                setStatus("Requested Katana")
+            end)
+            addActionButton("Buy Cutlass", function()
+                local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+                if commF then
+                    pcall(function() commF:InvokeServer("BuyItem", "Cutlass") end)
+                end
+                setStatus("Requested Cutlass")
+            end)
+            addActionButton("Buy Pipe", function()
+                local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+                if commF then
+                    pcall(function() commF:InvokeServer("BuyItem", "Pipe") end)
+                end
+                setStatus("Requested Pipe")
+            end)
+            addActionButton("Buy Black Cape", function()
+                local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+                if commF then
+                    pcall(function() commF:InvokeServer("BuyItem", "Black Cape") end)
+                end
+                setStatus("Requested Black Cape")
+            end)
 
         elseif tabName == "Farm" then
             State.LevelInfoLabel = addInfo("")
             refreshLevelInfoLabel()
-            addActionButton("Weapon Type: " .. Config.WeaponType .. " (Click to Switch)", function()
-                Config.WeaponType = (Config.WeaponType == "Melee") and "Sword" or "Melee"
+            addActionButton("Select Weapon: " .. Config.WeaponType .. " (Cycle)", function()
+                Config.WeaponType = cycleItem(WeaponTypes, Config.WeaponType)
                 openTab("Farm")
             end)
-            addActionButton("Target: " .. Config.FarmTarget .. " (Click to Cycle)", function()
-                if Config.FarmTarget == "Auto Level" then
-                    Config.FarmTarget = "Bones"
-                elseif Config.FarmTarget == "Bones" then
-                    Config.FarmTarget = "Cake Prince"
-                else
-                    Config.FarmTarget = "Auto Level"
-                end
+            addActionButton("Select Target: " .. Config.FarmTarget .. " (Cycle)", function()
+                local targets = {"Auto Level", "Bones", "Cake Prince", "Nearest Mob"}
+                Config.FarmTarget = cycleItem(targets, Config.FarmTarget)
                 openTab("Farm")
             end)
-            addActionButton("Farm Speed: " .. tostring(Config.FarmSpeed) .. " (Click to Cycle)", function()
+            addActionButton("Farm Speed: " .. tostring(Config.FarmSpeed) .. " (Cycle)", function()
                 if Config.FarmSpeed == 180 then
                     Config.FarmSpeed = 260
                 elseif Config.FarmSpeed == 260 then
@@ -942,6 +977,7 @@ local function buildUI()
                 end
                 openTab("Farm")
             end)
+            addToggle("Auto Farm", Config.AutoFarm, function(v) Config.AutoFarm = v end)
             addToggle("Auto Farm Level", Config.AutoFarmLevel, function(v)
                 Config.AutoFarmLevel = v
                 if v then
@@ -949,7 +985,6 @@ local function buildUI()
                     refreshLevelInfoLabel()
                 end
             end)
-            addToggle("Auto Farm", Config.AutoFarm, function(v) Config.AutoFarm = v end)
             addToggle("Auto Farm Bones", Config.AutoFarmBones, function(v)
                 Config.AutoFarmBones = v
                 if v then Config.FarmTarget = "Bones" end
@@ -958,11 +993,16 @@ local function buildUI()
                 Config.AutoFarmCakePrince = v
                 if v then Config.FarmTarget = "Cake Prince" end
             end)
+            addToggle("Auto Farm Nearest Mob", Config.AutoFarmNearest, function(v)
+                Config.AutoFarmNearest = v
+                if v then Config.FarmTarget = "Nearest Mob" end
+            end)
             addToggle("Ignore Cake Prince", Config.IgnoreCakePrince, function(v) Config.IgnoreCakePrince = v end)
             addToggle("Accept Quests", Config.AutoQuest, function(v) Config.AutoQuest = v end)
             addToggle("Fast Attack", Config.FastAttack, function(v) Config.FastAttack = v end)
             addToggle("Bring Mob", Config.BringMob, function(v) Config.BringMob = v end)
             addToggle("Auto Equip Weapon", Config.AutoEquipWeapon, function(v) Config.AutoEquipWeapon = v end)
+            addToggle("Auto Buso Haki", Config.AutoBuso, function(v) Config.AutoBuso = v end)
             addToggle("Auto Random Bones", Config.AutoRandomBones, function(v) Config.AutoRandomBones = v end)
             addActionButton("Spin Bones Now", function()
                 State.LastBoneSpin = 0
@@ -972,6 +1012,10 @@ local function buildUI()
             addToggle("Auto Collect Chest", Config.AutoCollectChest, function(v) Config.AutoCollectChest = v end)
 
         elseif tabName == "Skill Settings" then
+            addActionButton("Skill Weapon: " .. Config.SkillWeaponType .. " (Cycle)", function()
+                Config.SkillWeaponType = cycleItem(WeaponTypes, Config.SkillWeaponType)
+                openTab("Skill Settings")
+            end)
             addActionButton("Skill Cooldown: " .. tostring(Config.SkillCooldown) .. "s (Cycle)", function()
                 if Config.SkillCooldown == 1.6 then
                     Config.SkillCooldown = 2.2
@@ -987,10 +1031,11 @@ local function buildUI()
             addToggle("Auto Skill C", Config.AutoSkillC, function(v) Config.AutoSkillC = v end)
             addToggle("Auto Skill V", Config.AutoSkillV, function(v) Config.AutoSkillV = v end)
             addToggle("Auto Buso Haki", Config.AutoBuso, function(v) Config.AutoBuso = v end)
-            addToggle("Auto Observation", Config.AutoObservation, function(v) Config.AutoObservation = v end)
+            addToggle("Auto Observation Haki", Config.AutoObservation, function(v) Config.AutoObservation = v end)
 
         elseif tabName == "Stack Farming" then
             State.EliteProcessLabel = addInfo("Elites Process: " .. tostring(State.EliteCount))
+            State.CakeProcessLabel = addInfo("Cake Prince Progress: " .. tostring(State.CakeMobCount) .. " / 500")
             addActionButton("Reset Elites Process", function()
                 State.EliteCount = 0
                 refreshEliteProgressLabel()
@@ -1014,9 +1059,20 @@ local function buildUI()
             end
 
         elseif tabName == "PVP" then
-            addToggle("Auto Aim / Attack Nearest Player", Config.AutoAimPVP, function(v) Config.AutoAimPVP = v end)
+            addActionButton("Target Player: " .. tostring(Config.SelectedPVPTarget) .. " (Cycle)", function()
+                local names = {"Nearest"}
+                for _, plr in ipairs(Players:GetPlayers()) do
+                    if plr ~= LocalPlayer then
+                        table.insert(names, plr.Name)
+                    end
+                end
+                Config.SelectedPVPTarget = cycleItem(names, Config.SelectedPVPTarget)
+                openTab("PVP")
+            end)
+            addToggle("Auto Aim / Attack Player", Config.AutoAimPVP, function(v) Config.AutoAimPVP = v end)
             addToggle("Bring Mob For PVP", Config.BringMobPVP, function(v) Config.BringMobPVP = v end)
             addToggle("Auto Buso / Ken In PVP", Config.AutoKenPVP, function(v) Config.AutoKenPVP = v end)
+            addToggle("Use Skills In PVP", Config.UseSkillsPVP, function(v) Config.UseSkillsPVP = v end)
             addActionButton("Stop PVP", function()
                 Config.AutoAimPVP = false
                 setStatus("PVP Stopped")
@@ -1050,6 +1106,10 @@ local function buildUI()
             end)
             addToggle("ESP Mobs", Config.EspMobs, function(v)
                 Config.EspMobs = v
+                updateEsp()
+            end)
+            addToggle("ESP Elite Bosses", Config.EspElites, function(v)
+                Config.EspElites = v
                 updateEsp()
             end)
             addActionButton("Refresh ESP Now", function()
@@ -1099,14 +1159,14 @@ task.spawn(function()
             randomBones()
         end
 
-        if Config.AutoRefreshEsp and (Config.EspPlayers or Config.EspChests or Config.EspFruits or Config.EspMobs) then
+        if Config.AutoRefreshEsp and (Config.EspPlayers or Config.EspChests or Config.EspFruits or Config.EspMobs or Config.EspElites) then
             if tick() - State.LastEspRefresh > 2.5 then
                 State.LastEspRefresh = tick()
                 pcall(updateEsp)
             end
         end
 
-        local anyFarmActive = Config.AutoFarm or Config.AutoFarmBones or Config.AutoFarmCakePrince or Config.AutoFarmLevel
+        local anyFarmActive = Config.AutoFarm or Config.AutoFarmLevel or Config.AutoFarmBones or Config.AutoFarmCakePrince or Config.AutoFarmNearest
 
         if Config.AutoSlapFish then
             setStatus("Auto Slap Fish")
@@ -1132,10 +1192,15 @@ task.spawn(function()
                         local tRoot = plr.Character:FindFirstChild("HumanoidRootPart")
                         local tHum = plr.Character:FindFirstChildOfClass("Humanoid")
                         if tRoot and tHum and tHum.Health > 0 then
-                            local d = (root.Position - tRoot.Position).Magnitude
-                            if d < bestDist then
-                                bestDist = d
+                            if Config.SelectedPVPTarget == plr.Name then
                                 targetPlr = plr
+                                break
+                            elseif Config.SelectedPVPTarget == "Nearest" then
+                                local d = (root.Position - tRoot.Position).Magnitude
+                                if d < bestDist then
+                                    bestDist = d
+                                    targetPlr = plr
+                                end
                             end
                         end
                     end
@@ -1146,7 +1211,7 @@ task.spawn(function()
                 equipWeapon(Config.WeaponType)
                 tweenToCFrame(targetPlr.Character.HumanoidRootPart.CFrame * CFrame.new(0, 4, 3))
                 if Config.FastAttack then fastAttack() end
-                castConfiguredSkills()
+                if Config.UseSkillsPVP then castConfiguredSkills() end
             else
                 setStatus("PVP: No Target")
             end
@@ -1182,6 +1247,8 @@ task.spawn(function()
                 mode = "Bones"
             elseif Config.AutoFarmCakePrince then
                 mode = "Cake Prince"
+            elseif Config.AutoFarmNearest then
+                mode = "Nearest Mob"
             end
 
             if mode == "Auto Level" then
@@ -1208,6 +1275,8 @@ task.spawn(function()
                     filter = "Reborn Skeleton"
                 elseif mode == "Cake Prince" and not Config.IgnoreCakePrince then
                     filter = "Cake Prince"
+                elseif mode == "Nearest Mob" then
+                    filter = nil
                 end
 
                 local mob = findNearestEnemy(filter) or findNearestEnemy(nil)
